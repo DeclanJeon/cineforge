@@ -1,0 +1,460 @@
+"""오케스트레이션 상태 기계 — 단계 실행, 게이트, 권한, 인계(handoff), 진행 상태 저장."""
+from __future__ import annotations
+
+import json
+import re
+from copy import deepcopy
+from datetime import datetime
+from pathlib import Path
+from typing import Any, Callable
+
+from cineforge import __version__, assets, qa
+from cineforge.concept import build_concept
+from cineforge.data_loader import load
+from cineforge.intake import analyze
+from cineforge.planner import build_payload, generate_plan
+from cineforge.progress import rates
+from cineforge.providers.base import AgentInputRequired, ProviderError
+from cineforge.providers.router import ProviderRouter, build_router
+from cineforge.render import plan_markdown
+from cineforge.schemas import validate
+from cineforge.selection import fill_required, merge, new_selection, validate as validate_selection
+from cineforge.ssot import SSOT_TYPES, SSOTStore, build_all, impact, now
+from cineforge.taxonomy import Taxonomy
+
+EXTERNAL_STAGES = {"S08_generation", "S09_edit", "S10_qa", "S11_delivery"}
+IMPACT_TO_STAGE = {"plan": "S03_plan", "story": "S04_story", "concept": "S04_story", "character": "S05_character_world",
+                   "world": "S05_character_world", "scene": "S06_storyboard", "camera": "S06_storyboard", "motion": "S06_storyboard",
+                   "audio": "S07_assets", "assets/image_prompts": "S07_assets", "assets/video_prompts": "S07_assets",
+                   "assets/frames": "S07_assets", "assets/sound_cue_sheet": "S07_assets"}
+DEFAULT_AUTHORITY = {"accept_plan": False, "accept_preproduction": False, "execution": False, "edit": False, "publish": False,
+                     "spend_ceiling": None, "granted_by": "user", "granted_at": None, "notes": []}
+
+
+def slugify(text: str) -> str:
+    base = re.sub(r"[^0-9A-Za-z가-힣]+", "-", text).strip("-")[:24] or "project"
+    return f"{datetime.now().strftime('%Y%m%d-%H%M%S')}-{base}"
+
+
+class Project:
+    def __init__(self, root: Path, router: ProviderRouter | None = None, tax: Taxonomy | None = None) -> None:
+        self.root = Path(root)
+        self.tax = tax or Taxonomy()
+        self.pipeline = load("pipeline.yaml")
+        meta = self.read("project.json") or {}
+        self.router = router or build_router(meta.get("provider_mode", "auto"), io_dir=self.root / "agent_io")
+        self.store = SSOTStore(self.root)
+
+    # ---------- 파일 I/O ----------
+    def read(self, rel: str) -> Any:
+        p = self.root / rel
+        return json.loads(p.read_text(encoding="utf-8")) if p.is_file() else None
+
+    def write(self, rel: str, data: Any, schema: str | None = None) -> Path:
+        if schema:
+            errors = validate(data, schema)
+            if errors:
+                raise ValueError(f"{rel} 스키마 오류: {errors[:5]}")
+        p = self.root / rel
+        p.parent.mkdir(parents=True, exist_ok=True)
+        text = data if isinstance(data, str) else json.dumps(data, ensure_ascii=False, indent=2)
+        p.write_text(text, encoding="utf-8")
+        return p
+
+    def log(self, event: str, **fields: Any) -> None:
+        self.root.mkdir(parents=True, exist_ok=True)
+        with (self.root / "history.jsonl").open("a", encoding="utf-8") as fh:
+            fh.write(json.dumps({"at": now(), "event": event, **fields}, ensure_ascii=False) + "\n")
+
+    # ---------- 생성 ----------
+    @classmethod
+    def create(cls, parent: Path, request: str, provider_mode: str = "auto", project_id: str | None = None,
+               router: ProviderRouter | None = None, inputs: dict[str, Any] | None = None) -> "Project":
+        pid = project_id or slugify(request)
+        root = Path(parent) / pid
+        if (root / "project.json").exists():
+            raise FileExistsError(f"이미 있는 프로젝트: {root}")
+        root.mkdir(parents=True, exist_ok=True)
+        tax = Taxonomy()
+        meta = {"project_id": pid, "created_at": now(), "request": request, "provider_mode": provider_mode,
+                "taxonomy_version": tax.version, "cineforge_version": __version__, "inputs": inputs or {}}
+        (root / "project.json").write_text(json.dumps(meta, ensure_ascii=False, indent=2), encoding="utf-8")
+        project = cls(root, router=router or build_router(provider_mode, io_dir=root / "agent_io"), tax=tax)
+        project.write("authority.json", dict(DEFAULT_AUTHORITY), "authority")
+        project.write("progress.json", project._initial_progress(), "progress")
+        project.log("project_created", request=request, provider_mode=provider_mode)
+        return project
+
+    @property
+    def meta(self) -> dict[str, Any]:
+        return self.read("project.json")
+
+    def _initial_progress(self) -> dict[str, Any]:
+        stages = {s["id"]: {"status": "pending", "tasks": {t: "pending" for t in s["tasks"]}, "qa": None, "started_at": None,
+                            "finished_at": None, "note": None, "provider": None, "evidence": []} for s in self.pipeline["stages"]}
+        stages["S12_feedback"]["status"] = "skipped"
+        stages["S12_feedback"]["note"] = "성과 피드백(L6)은 로드맵 6단계 — 현재 설계만"
+        return {"project_id": self.root.name, "updated_at": now(), "current_stage": self.pipeline["stages"][0]["id"],
+                "stages": stages, "task_rate": 0.0, "progress_rate": 0.0}
+
+    # ---------- 진행 상태 ----------
+    def progress(self) -> dict[str, Any]:
+        return self.read("progress.json")
+
+    def save_progress(self, prog: dict[str, Any]) -> None:
+        prog["updated_at"] = now()
+        prog["current_stage"] = next((sid for sid, st in prog["stages"].items() if st["status"] not in ("done", "skipped")), None)
+        prog["task_rate"], prog["progress_rate"] = rates(prog, self.pipeline)
+        self.write("progress.json", prog, "progress")
+
+    def set_stage(self, prog: dict[str, Any], sid: str, status: str, note: str | None = None, tasks_done: list[str] | None = None,
+                  qa_report: dict[str, Any] | None = None, provider: str | None = None, evidence: list[str] | None = None) -> None:
+        st = prog["stages"][sid]
+        if st["started_at"] is None and status != "pending":
+            st["started_at"] = now()
+        for t in tasks_done or []:
+            if t in st["tasks"]:
+                st["tasks"][t] = "done"
+        if status == "done":
+            st["tasks"] = {k: "done" for k in st["tasks"]}
+            st["finished_at"] = now()
+        st["status"], st["note"] = status, note
+        if qa_report is not None:
+            st["qa"] = {"status": qa_report["status"], "counts": qa_report["summary"].get("counts")}
+        if provider:
+            st["provider"] = provider
+        if evidence:
+            st["evidence"] = evidence
+        self.save_progress(prog)
+        self.log("stage", stage=sid, status=status, note=note)
+
+    # ---------- 권한 ----------
+    def authority(self) -> dict[str, Any]:
+        return self.read("authority.json") or dict(DEFAULT_AUTHORITY)
+
+    def grant(self, **changes: Any) -> dict[str, Any]:
+        auth = self.authority()
+        for key, value in changes.items():
+            if key not in DEFAULT_AUTHORITY:
+                raise KeyError(key)
+            auth[key] = value
+        auth["granted_at"] = now()
+        auth["granted_by"] = "user"
+        self.write("authority.json", auth, "authority")
+        self.log("authority_granted", changes=changes)
+        return auth
+
+    # ---------- 선택 ----------
+    def save_selection(self, sel: dict[str, Any]) -> list[str]:
+        errors = validate_selection(sel, self.tax)
+        self.write("selection.json", sel)
+        return errors
+
+    # ---------- 실행 루프 ----------
+    def run(self, until: str | None = None, echo: Callable[[str], None] | None = None) -> dict[str, Any]:
+        echo = echo or (lambda _m: None)
+        prog = self.progress()
+        runners: dict[str, Callable[[dict[str, Any]], bool]] = {
+            "S00_intake": self._s00, "S01_selection": self._s01, "S02_concept": self._s02, "S03_plan": self._s03,
+            "G1_plan_review": self._g1, "S04_story": self._s04, "S05_character_world": self._s05, "S06_storyboard": self._s06,
+            "S07_assets": self._s07, "G2_preproduction_review": self._g2, "S08_generation": self._external,
+            "S09_edit": self._external, "S10_qa": self._external, "G3_user_review": self._g3, "S11_delivery": self._external,
+        }
+        for stage in self.pipeline["stages"]:
+            sid = stage["id"]
+            if prog["stages"][sid]["status"] in ("done", "skipped"):
+                continue
+            runner = runners.get(sid)
+            if runner is None:
+                break
+            echo(f"▶ {sid} {stage['ko']}")
+            self.set_stage(prog, sid, "running")
+            try:
+                ok = runner(prog) if runner != self._external else self._external(prog, sid)
+            except AgentInputRequired as req:
+                self.set_stage(prog, sid, "waiting_agent", f"에이전트 응답 필요: {req.request_path} → {req.response_path}")
+                break
+            except ProviderError as exc:
+                self.set_stage(prog, sid, "failed", f"공급자 오류: {exc}")
+                break
+            except ValueError as exc:
+                self.set_stage(prog, sid, "failed", str(exc))
+                break
+            prog = self.progress()
+            if not ok or prog["stages"][sid]["status"] != "done":
+                break
+            if until and sid == until:
+                break
+        self.write("provider_log.json", self.router.log)
+        return self.progress()
+
+    # ---------- 단계 구현 ----------
+    def _s00(self, prog: dict[str, Any]) -> bool:
+        meta = self.meta
+        result = analyze(meta["request"], self.router, self.tax, meta.get("inputs"))
+        self.write("intake.json", result.to_dict(), "intake")
+        missing = result.missing()
+        note = f"부족한 요소 {len(missing)}개: {', '.join(missing)} → 선택 단계에서 보완" if missing else "필요 요소 모두 확인"
+        self.set_stage(prog, "S00_intake", "done", note, provider=",".join(result.providers_used) or None)
+        return True
+
+    def _s01(self, prog: dict[str, Any]) -> bool:
+        intake = self.read("intake.json")
+        sel = self.read("selection.json")
+        if sel is None:
+            sel = merge(new_selection(), intake["detected_selection"], "request")
+        sel.setdefault("constraints", [])
+        sel["constraints"] = sorted(set(sel["constraints"]) | set(intake.get("constraints", [])))
+        before = {k for k, v in sel["sources"].items()}
+        sel = fill_required(sel, intake["request"], self.router, self.tax)
+        errors = self.save_selection(sel)
+        if errors:
+            self.set_stage(prog, "S01_selection", "blocked", "선택 오류: " + "; ".join(errors))
+            return False
+        auto = sorted(set(sel["sources"]) - before)
+        self.set_stage(prog, "S01_selection", "done", f"AI가 채운 항목: {', '.join(auto)}" if auto else "모든 항목 사용자 확정")
+        return True
+
+    def _s02(self, prog: dict[str, Any]) -> bool:
+        sel = self.read("selection.json")
+        concept = build_concept(sel, self.tax, self.router)
+        self.write("concept.json", concept)
+        if concept["blocking"]:
+            fixes = "; ".join(f"{i['rule']} {i['message']} {i.get('fix') or ''}" for i in concept["blocking"])
+            self.set_stage(prog, "S02_concept", "blocked", "적합성 오류(선택 수정 또는 override 필요): " + fixes,
+                           qa_report=qa.report("compatibility", self._as_issues(concept["compatibility"])))
+            return False
+        self.set_stage(prog, "S02_concept", "done", f"평가 {concept['evaluation']['total']}점({concept['evaluation']['verdict']})",
+                       qa_report=qa.report("compatibility", self._as_issues(concept["compatibility"])),
+                       provider=",".join(concept["evaluation"]["providers"]))
+        return True
+
+    @staticmethod
+    def _as_issues(compat: list[dict[str, Any]]) -> list[dict[str, Any]]:
+        return [{"rule": c["rule"], "severity": "info" if c["overridden"] else c["severity"], "target": None, "message": c["message"]} for c in compat]
+
+    def _labels(self, sel: dict[str, Any]) -> dict[str, Any]:
+        out: dict[str, Any] = {}
+        for axis in self.tax.order():
+            v = sel.get(axis)
+            if v in (None, [], {}):
+                continue
+            if axis == "direction":
+                out[axis] = {g: self.tax.get(axis, i, g).ko for g, i in v.items()}
+            elif isinstance(v, list):
+                out[axis] = self.tax.labels(axis, v)
+            else:
+                out[axis] = self.tax.get(axis, v).ko
+        return out
+
+    def _s03(self, prog: dict[str, Any]) -> bool:
+        sel, concept, intake = self.read("selection.json"), self.read("concept.json"), self.read("intake.json")
+        rhythm = sel.get("direction", {}).get("edit_rhythm")
+        avg = self.tax.get("direction", rhythm, "edit_rhythm").data.get("avg_cut_s") if rhythm else None
+        payload = build_payload(sel, concept, intake, self._labels(sel), avg)
+        plan, provider = generate_plan(self.router, payload)
+        self.write("plan.json", plan, "plan")
+        self.write("plan.md", plan_markdown(plan, concept))
+        fails = [c for c in plan["preflight_checks"] if c["status"] == "fail"]
+        report = qa.report("plan_preflight", [{"rule": c["id"], "severity": "error" if c["status"] == "fail" else ("warn" if c["status"] == "warn" else "info"),
+                                                "target": None, "message": f"{c['item']}: {c.get('detail', '')}"} for c in plan["preflight_checks"] if c["status"] != "pass"])
+        self.set_stage(prog, "S03_plan", "done", f"{plan['meta']['scene_count']}씬 {plan['meta']['cut_count']}컷 · 사전점검 실패 {len(fails)}건",
+                       qa_report=report, provider=provider)
+        return True
+
+    def _g1(self, prog: dict[str, Any]) -> bool:
+        plan = self.read("plan.json")
+        fails = [c for c in plan["preflight_checks"] if c["status"] == "fail"]
+        review = qa.report("G1_plan_review", [{"rule": c["id"], "severity": "error", "target": None, "message": c["item"] + ": " + c.get("detail", "")} for c in fails])
+        self.write("reviews/plan_review.json", review, "qa_report")
+        if fails:
+            self.set_stage(prog, "G1_plan_review", "blocked", "기획안 자동 검수 실패 → plan.json 수정 후 `cineforge run`", qa_report=review, tasks_done=["auto_review"])
+            return False
+        if not self.authority()["accept_plan"]:
+            self.set_stage(prog, "G1_plan_review", "waiting_user", "plan.md 검토 후 `cineforge accept <프로젝트> plan`", qa_report=review, tasks_done=["auto_review"])
+            return False
+        self.set_stage(prog, "G1_plan_review", "done", "자동 검수 통과 + 사용자 승인(사전 위임 포함)", qa_report=review)
+        return True
+
+    def _ssot_build(self) -> dict[str, dict[str, Any]]:
+        sel, concept, plan = self.read("selection.json"), self.read("concept.json"), self.read("plan.json")
+        labels = self._labels(sel)
+        return build_all(plan, concept, sel, {"era": labels.get("era"), "world": labels.get("world")})
+
+    def _write_ssots(self, kinds: list[str]) -> list[str]:
+        data = self._ssot_build()
+        written = []
+        for kind in kinds:
+            doc, changed = self.store.write(kind, data[kind])
+            written.append(f"{kind} v{doc['version']}{'' if changed else ' (변경 없음)'}")
+        return written
+
+    def _handoff(self, sid: str, extra: dict[str, Any] | None = None) -> dict[str, Any]:
+        stage = next(s for s in self.pipeline["stages"] if s["id"] == sid)
+        auth_key = stage.get("requires_authority")
+        packet = {"stage": sid, "route": stage.get("route"), "owner_skills": stage["skills"], "authority_required": auth_key,
+                  "authority_granted": bool(self.authority().get(auth_key)) if auth_key else True,
+                  "inputs": [str(p.relative_to(self.root)) for p in sorted((self.root / "ssot").glob("*.json"))] + ["plan.json", "selection.json"],
+                  "outputs_expected": stage["outputs"], "packet": extra or {},
+                  "completion_command": f"cineforge complete {self.root} {sid} --evidence <파일...>"}
+        self.write(f"handoffs/{sid}.json", packet, "handoff")
+        return packet
+
+    def _s04(self, prog: dict[str, Any]) -> bool:
+        written = self._write_ssots(["concept", "story"])
+        self._handoff("S04_story", {"enrich": "developing-video-synopses로 비트·복선을, video-production-assets(03-screenplay)로 대본을 보강해 ssot/story.json에 반영",
+                                    "language": "ko"})
+        self.write("script.md", self._script_md())
+        self.set_stage(prog, "S04_story", "done", ", ".join(written))
+        return True
+
+    def _script_md(self) -> str:
+        plan = self.read("plan.json")
+        names = {c["id"]: c["name"] for c in plan["characters"]}
+        out = [f"# 대본 — {plan['title']}", ""]
+        for s in plan["scenes"]:
+            out += [f"## S#{s['no']}. {s['location']} — {s['title']}", ""]
+            for c in s["cuts"]:
+                out.append(f"- ({c['no']:02d}, {c['duration']:g}s) {c['visual']}")
+                if c.get("dialogue"):
+                    out.append(f"  - **{names.get(c.get('speaker'), c.get('speaker') or '?')}**: {c['dialogue']}")
+            out.append("")
+        return "\n".join(out)
+
+    def _s05(self, prog: dict[str, Any]) -> bool:
+        written = self._write_ssots(["character", "world"])
+        self._handoff("S05_character_world", {"enrich": "designing-video-character-sheets(R03)로 캐릭터 바이블·의상, designing-character-personas(R04)로 페르소나·연기 방향 보강",
+                                              "lock_rule": "보강 후 `cineforge lock <프로젝트> character`로 잠금"})
+        self.set_stage(prog, "S05_character_world", "done", ", ".join(written))
+        return True
+
+    def _s06(self, prog: dict[str, Any]) -> bool:
+        written = self._write_ssots(["scene", "camera", "motion"])
+        self._handoff("S06_storyboard", {"enrich": "storyboarding-video(R10)로 패널, camera-spatial-design(R18)로 렌즈·동선, animatic-direction(R08)으로 타이밍 검증"})
+        self.set_stage(prog, "S06_storyboard", "done", ", ".join(written))
+        return True
+
+    def _ssots(self) -> dict[str, dict[str, Any]]:
+        return {k: self.store.read(k) for k in SSOT_TYPES}
+
+    def _s07(self, prog: dict[str, Any]) -> bool:
+        written = self._write_ssots(["audio"])
+        ss = self._ssots()
+        sel = self.read("selection.json")
+        pid = self.root.name
+        aspect = self.tax.get("aspect", sel["aspect"]).ko.split()[0] if sel.get("aspect") else "9:16"
+        look = self.read("plan.json")["meta"]["style"]
+        silent = sel.get("direction", {}).get("sound") == "silent" or "no_speech" in sel.get("constraints", [])
+        runtime = float(self.read("plan.json")["meta"]["runtime_s"])
+        self.write("assets/asset_registry.json", assets.registry(pid, ss), "asset_registry")
+        self.write("assets/frames.json", assets.frames(pid, ss), "frames")
+        self.write("assets/image_prompts.json", assets.image_prompts(pid, ss, aspect, look), "prompts")
+        self.write("assets/video_prompts.json", assets.video_prompts(pid, ss, aspect, silent), "prompts")
+        self.write("assets/sound_cue_sheet.json", assets.sound_cue_sheet(pid, ss, runtime), "sound_cue_sheet")
+        self._handoff("S07_assets", {"enrich": "video-production-assets(11-ai-handoff)·ai-camera-control(R19)로 모델별 프롬프트 방언 변환은 실행 직전에"})
+        self.set_stage(prog, "S07_assets", "done", ", ".join(written) + " · 에셋/프레임/프롬프트/큐시트 작성")
+        return True
+
+    def _g2(self, prog: dict[str, Any]) -> bool:
+        ss = self._ssots()
+        plan, sel, intake = self.read("plan.json"), self.read("selection.json"), self.read("intake.json")
+        img = self.read("assets/image_prompts.json")["prompts"]
+        vid = self.read("assets/video_prompts.json")["prompts"]
+        issues = qa.continuity(ss, float(plan["meta"]["runtime_s"])) + qa.constraints(ss, img + vid, sel.get("direction", {}).get("sound") == "silent",
+                                                                                    "no_speech" in sel.get("constraints", [])) + qa.identity(ss, img) \
+            + qa.rights_safety(ss, sel, intake)
+        method = self.tax.get("production_method", sel["production_method"]).data.get("ai_difficulty", 1) if sel.get("production_method") else 1
+        cost = qa.cost_plan(ss, method)
+        review = qa.report("G2_preproduction_review", issues, {"cost_plan": cost, "ssot_versions": self.store.versions()})
+        self.write("reviews/preproduction_review.json", review, "qa_report")
+        tasks = ["continuity_rules", "constraint_rules", "rights_safety", "cost_estimate"]
+        if review["status"] == "fail":
+            self.set_stage(prog, "G2_preproduction_review", "blocked", "검수 오류 → reviews/preproduction_review.json 확인 후 수정", tasks_done=tasks, qa_report=review)
+            return False
+        auth = self.authority()
+        if not (auth["accept_preproduction"] or auth["accept_plan"] and "nonstop" in auth.get("notes", [])):
+            self.set_stage(prog, "G2_preproduction_review", "waiting_user", "`cineforge accept <프로젝트> preproduction`", tasks_done=tasks, qa_report=review)
+            return False
+        self.set_stage(prog, "G2_preproduction_review", "done", f"검수 {review['status']} · 고비용 컷 {cost['high_tier_cuts']}개", qa_report=review)
+        return True
+
+    def _external(self, prog: dict[str, Any], sid: str | None = None) -> bool:
+        sid = sid or prog["current_stage"]
+        stage = next(s for s in self.pipeline["stages"] if s["id"] == sid)
+        extra = {"spend_ceiling": self.authority().get("spend_ceiling")}
+        if sid == "S08_generation":
+            extra["cost_plan"] = (self.read("reviews/preproduction_review.json") or {}).get("summary", {}).get("cost_plan")
+            extra["prompts"] = ["assets/image_prompts.json", "assets/video_prompts.json", "assets/frames.json"]
+        packet = self._handoff(sid, extra)
+        if stage.get("requires_authority") and not packet["authority_granted"]:
+            self.set_stage(prog, sid, "blocked", f"'{stage['requires_authority']}' 권한 필요 → `cineforge grant <프로젝트> {stage['requires_authority']}`"
+                           " (사용자 승인·비용 한도). 인계 패킷: handoffs/" + sid + ".json")
+            return False
+        self.set_stage(prog, sid, "waiting_external", f"호스트 에이전트가 {', '.join(stage['skills'])}로 실행 → 완료 후 `cineforge complete`")
+        return False
+
+    def _g3(self, prog: dict[str, Any]) -> bool:
+        if not self.read("reviews/user_review.json"):
+            self.set_stage(prog, "G3_user_review", "waiting_user", "완성본 확인 후 `cineforge accept <프로젝트> final`")
+            return False
+        self.set_stage(prog, "G3_user_review", "done", "사용자 최종 승인")
+        return True
+
+    # ---------- 외부 완료·승인·영향 ----------
+    def complete(self, sid: str, evidence: list[str]) -> None:
+        if sid not in EXTERNAL_STAGES:
+            raise ValueError(f"{sid}는 외부 완료 대상이 아닙니다")
+        missing = [e for e in evidence if not (Path(e).exists() or (self.root / e).exists())]
+        if not evidence or missing:
+            raise FileNotFoundError(f"증거 파일이 필요합니다(없음: {missing or '미제출'}) — API 성공·프롬프트만으로는 완료가 아닙니다")
+        prog = self.progress()
+        self.set_stage(prog, sid, "done", f"증거 {len(evidence)}개", evidence=evidence)
+
+    def accept(self, gate: str) -> None:
+        prog = self.progress()
+        if gate == "plan":
+            self.grant(accept_plan=True)
+            if prog["stages"]["G1_plan_review"]["status"] == "waiting_user":
+                self.set_stage(prog, "G1_plan_review", "done", "사용자 승인")
+        elif gate == "preproduction":
+            self.grant(accept_preproduction=True)
+            if prog["stages"]["G2_preproduction_review"]["status"] == "waiting_user":
+                self.set_stage(prog, "G2_preproduction_review", "done", "사용자 승인")
+        elif gate == "final":
+            self.write("reviews/user_review.json", {"accepted": True, "at": now()})
+            self.set_stage(prog, "G3_user_review", "done", "사용자 최종 승인")
+        else:
+            raise ValueError("gate는 plan | preproduction | final")
+
+    def reset_from(self, sid: str) -> None:
+        """sid 이후 단계를 pending으로 되돌린다(외부 단계의 증거·권한 기록은 유지)."""
+        prog = self.progress()
+        order = [x["id"] for x in self.pipeline["stages"]]
+        for later in order[order.index(sid):]:
+            st = prog["stages"][later]
+            if st["status"] == "skipped":
+                continue
+            st["status"], st["note"] = "pending", None
+            st["tasks"] = {k: "pending" for k in st["tasks"]}
+            st["qa"] = None
+        self.save_progress(prog)
+        self.log("reset", from_stage=sid)
+
+    def apply_impact(self, changed: str) -> list[str]:
+        affected = impact(changed)
+        stages = sorted({IMPACT_TO_STAGE[a] for a in affected + [changed] if a in IMPACT_TO_STAGE},
+                        key=lambda s: [x["id"] for x in self.pipeline["stages"]].index(s))
+        prog = self.progress()
+        order = [x["id"] for x in self.pipeline["stages"]]
+        if stages:
+            first = order.index(stages[0])
+            for sid in order[first:]:
+                if sid in stages or sid.startswith("G") or sid in EXTERNAL_STAGES:
+                    st = prog["stages"][sid]
+                    if st["status"] != "skipped":
+                        st["status"] = "stale" if sid in stages else "pending"
+                        st["tasks"] = {k: "pending" for k in st["tasks"]}
+                        st["note"] = f"'{changed}' 변경 영향" if sid in stages else st["note"]
+        self.save_progress(prog)
+        self.log("impact_applied", changed=changed, affected=affected, stages=stages)
+        return stages
