@@ -43,7 +43,7 @@
 |---|---|
 | N01 | 오프라인 동작: 키가 없으면 네트워크 호출 없이 규칙 기반·목업으로 끝까지 진행 가능 |
 | N02 | 비밀 관리: API 키는 환경변수로만 받고 파일·로그·명령 인자에 남기지 않는다 |
-| N03 | 비용 안전: CineForge는 유료 이미지·영상 생성 API를 호출하지 않는다. 판단(Jev)·문장 생성은 `OPENROUTER_API_KEY`가 있을 때만 켜지고, 생성 모델 기본값은 `openai/gpt-6.1-terra`(ADR-008), `CINEFORGE_GEN_MODEL`로 덮어쓰거나 `off`로 끈다 |
+| N03 | 비용 안전: CineForge는 유료 이미지·영상 생성 API를 호출하지 않는다. 판단(Jev)·문장 생성은 `OPENROUTER_API_KEY`가 있을 때만 켜지고, 생성 모델 기본값은 `openai/gpt-6.2-sol`(ADR-010), `CINEFORGE_GEN_MODEL`로 덮어쓰거나 `off`로 끈다 |
 | N04 | 재현성: 모든 산출물은 프로젝트 폴더의 JSON(스키마 검증) + history.jsonl |
 | N05 | 단일 작성자: 상태 파일은 CLI만 쓴다. 스킬·에이전트는 응답/증거 파일로만 돌려준다 |
 | N06 | 한국어 우선 UI·문서 |

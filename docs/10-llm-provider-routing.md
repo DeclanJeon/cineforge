@@ -26,7 +26,7 @@
 | mock | heuristic | mock |
 
 - 공급자는 키가 있을 때만 `available`. 키: `OPENROUTER_API_KEY`, `TYPESAFE_API_KEY`(환경변수만).
-- 생성 모델 기본값은 `openai/gpt-6.1-terra`(ADR-008, 입력 $1/M·출력 $5/M). `CINEFORGE_GEN_MODEL`로 덮어쓰고 `off`면 끈다. 유료 호출의 opt-in은 `OPENROUTER_API_KEY` 설정 자체이며 키가 없으면 절대 호출하지 않는다.
+- 생성 모델 기본값은 `openai/gpt-6.2-sol`(ADR-010, 사용자 지정 "6.2 sol", 입력 $2/M·출력 $10/M). `CINEFORGE_GEN_MODEL`로 덮어쓰고 `off`면 끈다. 유료 호출의 opt-in은 `OPENROUTER_API_KEY` 설정 자체이며 키가 없으면 절대 호출하지 않는다.
 - 어떤 오류든 `ProviderError`로 바뀌고 라우터가 다음 공급자로 넘어가며 `provider_log.json`에 `fallback`과 이유를 남긴다. 키 값은 로그·파일에 남지 않는다(테스트로 확인).
 - 호스트 대기(`AgentInputRequired`)는 폴백하지 않고 단계를 `waiting_agent`로 만든다.
 
