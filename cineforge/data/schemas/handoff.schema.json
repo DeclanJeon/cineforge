@@ -1,0 +1,57 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cineforge/handoff.schema.json",
+  "title": "스킬 인계 패킷(Handoff)",
+  "type": "object",
+  "properties": {
+    "stage": {
+      "type": "string"
+    },
+    "route": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "owner_skills": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "authority_required": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "authority_granted": {
+      "type": "boolean"
+    },
+    "inputs": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "outputs_expected": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "packet": {
+      "type": "object"
+    },
+    "completion_command": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "stage",
+    "owner_skills",
+    "inputs",
+    "outputs_expected",
+    "completion_command"
+  ]
+}

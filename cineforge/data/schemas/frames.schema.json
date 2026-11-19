@@ -1,0 +1,38 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cineforge/frames.schema.json",
+  "title": "컷별 시작·종료 프레임",
+  "type": "object",
+  "properties": {
+    "project_id": {
+      "type": "string"
+    },
+    "frames": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "cut_id": {
+            "type": "string"
+          },
+          "start_frame": {
+            "type": "object"
+          },
+          "end_frame": {
+            "type": "object"
+          }
+        },
+        "required": [
+          "cut_id",
+          "start_frame",
+          "end_frame"
+        ]
+      },
+      "minItems": 1
+    }
+  },
+  "required": [
+    "project_id",
+    "frames"
+  ]
+}

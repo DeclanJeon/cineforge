@@ -1,0 +1,340 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cineforge/plan.schema.json",
+  "title": "제작 기획안(Plan)",
+  "type": "object",
+  "properties": {
+    "version": {
+      "type": "string"
+    },
+    "generated_by": {
+      "type": "string"
+    },
+    "title": {
+      "type": "string"
+    },
+    "logline": {
+      "type": "string"
+    },
+    "meta": {
+      "type": "object",
+      "properties": {
+        "format": {
+          "type": "string"
+        },
+        "genres": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "runtime_s": {
+          "type": "number"
+        },
+        "scene_count": {
+          "type": "integer"
+        },
+        "cut_count": {
+          "type": "integer"
+        },
+        "aspect": {
+          "type": "string"
+        },
+        "style": {
+          "type": "string"
+        },
+        "narrative": {
+          "type": "string"
+        },
+        "strategy": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "format",
+        "genres",
+        "runtime_s",
+        "scene_count",
+        "cut_count",
+        "aspect",
+        "style",
+        "narrative",
+        "strategy"
+      ]
+    },
+    "synopsis": {
+      "type": "string"
+    },
+    "hook": {
+      "type": "object",
+      "properties": {
+        "start": {
+          "type": "number"
+        },
+        "end": {
+          "type": "number"
+        },
+        "line": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "visual": {
+          "type": "string"
+        },
+        "caption": {
+          "type": "string"
+        },
+        "questions": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "required": [
+        "start",
+        "end",
+        "visual",
+        "caption",
+        "questions"
+      ]
+    },
+    "timeline": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "start": {
+            "type": "number"
+          },
+          "end": {
+            "type": "number"
+          },
+          "label": {
+            "type": "string"
+          },
+          "scene_no": {
+            "type": "integer"
+          },
+          "summary": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "start",
+          "end",
+          "label",
+          "scene_no"
+        ]
+      },
+      "minItems": 1
+    },
+    "scenes": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "no": {
+            "type": "integer"
+          },
+          "title": {
+            "type": "string"
+          },
+          "start": {
+            "type": "number"
+          },
+          "end": {
+            "type": "number"
+          },
+          "location": {
+            "type": "string"
+          },
+          "summary": {
+            "type": "string"
+          },
+          "cuts": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "no": {
+                  "type": "integer"
+                },
+                "duration": {
+                  "type": "number",
+                  "minimum": 0.1
+                },
+                "shot": {
+                  "type": "string"
+                },
+                "visual": {
+                  "type": "string"
+                },
+                "sound": {
+                  "type": "string"
+                },
+                "dialogue": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "speaker": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "characters": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "state": {
+                  "type": "object"
+                }
+              },
+              "required": [
+                "no",
+                "duration",
+                "visual",
+                "sound"
+              ]
+            },
+            "minItems": 1
+          },
+          "direction_note": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "no",
+          "title",
+          "start",
+          "end",
+          "location",
+          "cuts"
+        ]
+      },
+      "minItems": 1
+    },
+    "characters": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "age": {
+            "type": [
+              "integer",
+              "string",
+              "null"
+            ]
+          },
+          "role": {
+            "type": "string"
+          },
+          "persona": {
+            "type": "string"
+          },
+          "appearance": {
+            "type": "string"
+          },
+          "wardrobe": {
+            "type": "string"
+          },
+          "voice": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "role",
+          "persona",
+          "appearance",
+          "wardrobe"
+        ]
+      },
+      "minItems": 1
+    },
+    "props": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "production_spec": {
+      "type": "object",
+      "properties": {
+        "aspect": {
+          "type": "string"
+        },
+        "fps": {
+          "type": "string"
+        },
+        "camera": {
+          "type": "string"
+        },
+        "lighting": {
+          "type": "string"
+        },
+        "edit": {
+          "type": "string"
+        },
+        "camera_movement": {
+          "type": "string"
+        },
+        "bgm": {
+          "type": "string"
+        },
+        "sfx": {
+          "type": "string"
+        },
+        "grading": {
+          "type": "string"
+        },
+        "subtitles": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "aspect",
+        "fps",
+        "camera",
+        "lighting",
+        "edit",
+        "camera_movement",
+        "bgm",
+        "sfx",
+        "grading",
+        "subtitles"
+      ]
+    },
+    "preflight_checks": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      }
+    }
+  },
+  "required": [
+    "title",
+    "logline",
+    "meta",
+    "synopsis",
+    "hook",
+    "timeline",
+    "scenes",
+    "characters",
+    "production_spec"
+  ]
+}

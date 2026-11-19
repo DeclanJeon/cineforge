@@ -1,0 +1,76 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cineforge/intake.schema.json",
+  "title": "요구사항 분석(Intake)",
+  "type": "object",
+  "properties": {
+    "request": {
+      "type": "string"
+    },
+    "factors": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "properties": {
+          "ko": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "provided",
+              "partial",
+              "missing"
+            ]
+          },
+          "evidence": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "source": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "fills_stage": {
+            "type": "string"
+          },
+          "if_missing": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "status",
+          "fills_stage"
+        ]
+      }
+    },
+    "detected_selection": {
+      "type": "object"
+    },
+    "constraints": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "inputs": {
+      "type": "object"
+    },
+    "providers_used": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    }
+  },
+  "required": [
+    "request",
+    "factors",
+    "detected_selection",
+    "constraints"
+  ]
+}
