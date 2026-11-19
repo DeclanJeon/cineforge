@@ -1,0 +1,65 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cineforge/asset_registry.schema.json",
+  "title": "에셋 레지스트리",
+  "type": "object",
+  "properties": {
+    "project_id": {
+      "type": "string"
+    },
+    "assets": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "asset_id": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "version": {
+            "type": "integer"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "planned",
+              "generated",
+              "verified",
+              "locked",
+              "stale"
+            ]
+          },
+          "path": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "depends_on": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "asset_id",
+          "kind",
+          "name",
+          "version",
+          "status"
+        ]
+      },
+      "minItems": 1
+    }
+  },
+  "required": [
+    "project_id",
+    "assets"
+  ]
+}

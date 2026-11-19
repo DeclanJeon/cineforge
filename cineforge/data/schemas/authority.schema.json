@@ -1,0 +1,50 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cineforge/authority.schema.json",
+  "title": "사용자 권한 기록(Authority)",
+  "type": "object",
+  "properties": {
+    "accept_plan": {
+      "type": "boolean"
+    },
+    "accept_preproduction": {
+      "type": "boolean"
+    },
+    "execution": {
+      "type": "boolean"
+    },
+    "edit": {
+      "type": "boolean"
+    },
+    "publish": {
+      "type": "boolean"
+    },
+    "spend_ceiling": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "granted_by": {
+      "type": "string"
+    },
+    "granted_at": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "notes": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    }
+  },
+  "required": [
+    "accept_plan",
+    "execution",
+    "edit",
+    "publish"
+  ]
+}
