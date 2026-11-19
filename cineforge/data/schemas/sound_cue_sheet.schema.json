@@ -1,0 +1,78 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cineforge/sound_cue_sheet.schema.json",
+  "title": "사운드 큐 시트",
+  "type": "object",
+  "properties": {
+    "project_id": {
+      "type": "string"
+    },
+    "runtime_s": {
+      "type": "number"
+    },
+    "cues": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "cue_id": {
+            "type": "string"
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "BGM",
+              "SFX",
+              "DIALOGUE",
+              "VO",
+              "AMB",
+              "SILENCE"
+            ]
+          },
+          "tc_in": {
+            "type": "number"
+          },
+          "tc_out": {
+            "type": "number"
+          },
+          "cut_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "description": {
+            "type": "string"
+          },
+          "level": {
+            "type": "string"
+          },
+          "source": {
+            "type": "string"
+          },
+          "license": {
+            "type": "string"
+          },
+          "notes": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "cue_id",
+          "type",
+          "tc_in",
+          "tc_out",
+          "description",
+          "source",
+          "license"
+        ]
+      },
+      "minItems": 1
+    }
+  },
+  "required": [
+    "project_id",
+    "runtime_s",
+    "cues"
+  ]
+}
