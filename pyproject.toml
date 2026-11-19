@@ -1,0 +1,27 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "cineforge"
+version = "0.1.0"
+description = "대화형 AI 콘텐츠 제작 오케스트레이터 — contents-production-skills 연동 CLI"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = ["PyYAML>=6"]
+
+[project.optional-dependencies]
+validate = ["jsonschema>=4"]
+dev = ["pytest>=7", "jsonschema>=4"]
+
+[project.scripts]
+cineforge = "cineforge.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["cineforge*"]
+
+[tool.setuptools.package-data]
+cineforge = ["data/*.yaml", "data/schemas/*.json"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
