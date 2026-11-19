@@ -1,0 +1,231 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cineforge/ssot_scene.schema.json",
+  "title": "Scene SSOT",
+  "type": "object",
+  "properties": {
+    "ssot_type": {
+      "type": "string",
+      "enum": [
+        "scene"
+      ]
+    },
+    "version": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "updated_at": {
+      "type": "string"
+    },
+    "source_hash": {
+      "type": "string"
+    },
+    "locked": {
+      "type": "boolean"
+    },
+    "depends_on": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "data": {
+      "type": "object",
+      "properties": {
+        "cuts": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "cut_id": {
+                "type": "string"
+              },
+              "scene_no": {
+                "type": "integer"
+              },
+              "cut_no": {
+                "type": "integer"
+              },
+              "start": {
+                "type": "number"
+              },
+              "end": {
+                "type": "number"
+              },
+              "duration": {
+                "type": "number"
+              },
+              "location_id": {
+                "type": "string"
+              },
+              "characters": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "start_state": {
+                "type": "object",
+                "properties": {
+                  "positions": {
+                    "type": "object",
+                    "additionalProperties": {
+                      "type": "string"
+                    }
+                  },
+                  "holding": {
+                    "type": "object",
+                    "additionalProperties": {
+                      "type": "object",
+                      "properties": {
+                        "left": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "right": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "left",
+                        "right"
+                      ]
+                    }
+                  },
+                  "wardrobe": {
+                    "type": "object",
+                    "additionalProperties": {
+                      "type": "string"
+                    }
+                  },
+                  "gaze": {
+                    "type": "object"
+                  },
+                  "lighting": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "positions",
+                  "holding",
+                  "wardrobe",
+                  "lighting"
+                ]
+              },
+              "end_state": {
+                "type": "object",
+                "properties": {
+                  "positions": {
+                    "type": "object",
+                    "additionalProperties": {
+                      "type": "string"
+                    }
+                  },
+                  "holding": {
+                    "type": "object",
+                    "additionalProperties": {
+                      "type": "object",
+                      "properties": {
+                        "left": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "right": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "left",
+                        "right"
+                      ]
+                    }
+                  },
+                  "wardrobe": {
+                    "type": "object",
+                    "additionalProperties": {
+                      "type": "string"
+                    }
+                  },
+                  "gaze": {
+                    "type": "object"
+                  },
+                  "lighting": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "positions",
+                  "holding",
+                  "wardrobe",
+                  "lighting"
+                ]
+              },
+              "state_changes": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "dialogue": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "speaker": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "visual": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "cut_id",
+              "scene_no",
+              "cut_no",
+              "start",
+              "end",
+              "duration",
+              "location_id",
+              "characters",
+              "start_state",
+              "end_state"
+            ]
+          },
+          "minItems": 1
+        }
+      },
+      "required": [
+        "cuts"
+      ]
+    },
+    "upstream_versions": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "integer"
+      },
+      "description": "작성 시점의 상위 SSOT 버전"
+    }
+  },
+  "required": [
+    "ssot_type",
+    "version",
+    "source_hash",
+    "locked",
+    "depends_on",
+    "data"
+  ]
+}

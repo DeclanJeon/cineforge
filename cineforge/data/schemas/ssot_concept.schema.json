@@ -1,0 +1,96 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cineforge/ssot_concept.schema.json",
+  "title": "Concept SSOT",
+  "type": "object",
+  "properties": {
+    "ssot_type": {
+      "type": "string",
+      "enum": [
+        "concept"
+      ]
+    },
+    "version": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "updated_at": {
+      "type": "string"
+    },
+    "source_hash": {
+      "type": "string"
+    },
+    "locked": {
+      "type": "boolean"
+    },
+    "depends_on": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "data": {
+      "type": "object",
+      "properties": {
+        "title": {
+          "type": "string"
+        },
+        "title_line": {
+          "type": "string"
+        },
+        "subtitle": {
+          "type": "string"
+        },
+        "chain": {
+          "type": "string"
+        },
+        "emotion_arc": {
+          "type": "string"
+        },
+        "selection": {
+          "type": "object"
+        },
+        "tone": {
+          "type": "string"
+        },
+        "forbidden_props": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "direction_rules": {
+          "type": "object"
+        },
+        "overrides": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "required": [
+        "title",
+        "title_line",
+        "selection",
+        "forbidden_props",
+        "direction_rules"
+      ]
+    },
+    "upstream_versions": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "integer"
+      },
+      "description": "작성 시점의 상위 SSOT 버전"
+    }
+  },
+  "required": [
+    "ssot_type",
+    "version",
+    "source_hash",
+    "locked",
+    "depends_on",
+    "data"
+  ]
+}

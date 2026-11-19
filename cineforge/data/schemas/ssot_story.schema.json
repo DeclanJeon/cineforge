@@ -1,0 +1,158 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cineforge/ssot_story.schema.json",
+  "title": "Story SSOT",
+  "type": "object",
+  "properties": {
+    "ssot_type": {
+      "type": "string",
+      "enum": [
+        "story"
+      ]
+    },
+    "version": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "updated_at": {
+      "type": "string"
+    },
+    "source_hash": {
+      "type": "string"
+    },
+    "locked": {
+      "type": "boolean"
+    },
+    "depends_on": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "data": {
+      "type": "object",
+      "properties": {
+        "logline": {
+          "type": "string"
+        },
+        "synopsis": {
+          "type": "string"
+        },
+        "screen_order": {
+          "type": "array",
+          "items": {
+            "type": "integer"
+          }
+        },
+        "story_order": {
+          "type": "array",
+          "items": {
+            "type": "integer"
+          }
+        },
+        "beats": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "scene_no": {
+                "type": "integer"
+              },
+              "label": {
+                "type": "string"
+              },
+              "summary": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "scene_no",
+              "label"
+            ]
+          }
+        },
+        "foreshadowing": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "item": {
+                "type": "string"
+              },
+              "plant_cut": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "payoff_cut": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              }
+            },
+            "required": [
+              "id",
+              "item"
+            ]
+          }
+        },
+        "twists": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "causality": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "from": {
+                "type": "integer"
+              },
+              "to": {
+                "type": "integer"
+              },
+              "because": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "from",
+              "to",
+              "because"
+            ]
+          }
+        }
+      },
+      "required": [
+        "logline",
+        "synopsis",
+        "screen_order",
+        "story_order",
+        "beats",
+        "causality"
+      ]
+    },
+    "upstream_versions": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "integer"
+      },
+      "description": "작성 시점의 상위 SSOT 버전"
+    }
+  },
+  "required": [
+    "ssot_type",
+    "version",
+    "source_hash",
+    "locked",
+    "depends_on",
+    "data"
+  ]
+}

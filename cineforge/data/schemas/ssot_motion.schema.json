@@ -1,0 +1,87 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cineforge/ssot_motion.schema.json",
+  "title": "Motion SSOT",
+  "type": "object",
+  "properties": {
+    "ssot_type": {
+      "type": "string",
+      "enum": [
+        "motion"
+      ]
+    },
+    "version": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "updated_at": {
+      "type": "string"
+    },
+    "source_hash": {
+      "type": "string"
+    },
+    "locked": {
+      "type": "boolean"
+    },
+    "depends_on": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "data": {
+      "type": "object",
+      "properties": {
+        "cuts": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "cut_id": {
+                "type": "string"
+              },
+              "action": {
+                "type": "string"
+              },
+              "direction": {
+                "type": "string"
+              },
+              "speed": {
+                "type": "string"
+              },
+              "contact": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            },
+            "required": [
+              "cut_id",
+              "action",
+              "speed"
+            ]
+          }
+        }
+      },
+      "required": [
+        "cuts"
+      ]
+    },
+    "upstream_versions": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "integer"
+      },
+      "description": "작성 시점의 상위 SSOT 버전"
+    }
+  },
+  "required": [
+    "ssot_type",
+    "version",
+    "source_hash",
+    "locked",
+    "depends_on",
+    "data"
+  ]
+}
