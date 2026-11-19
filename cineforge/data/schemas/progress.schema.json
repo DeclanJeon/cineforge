@@ -1,0 +1,99 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cineforge/progress.schema.json",
+  "title": "진행 상태(Progress)",
+  "type": "object",
+  "properties": {
+    "project_id": {
+      "type": "string"
+    },
+    "updated_at": {
+      "type": "string"
+    },
+    "current_stage": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "stages": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "pending",
+              "running",
+              "done",
+              "blocked",
+              "waiting_user",
+              "waiting_agent",
+              "waiting_external",
+              "stale",
+              "failed",
+              "skipped"
+            ]
+          },
+          "tasks": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            }
+          },
+          "qa": {
+            "type": [
+              "object",
+              "null"
+            ]
+          },
+          "started_at": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "finished_at": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "note": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "provider": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "evidence": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "status",
+          "tasks"
+        ]
+      }
+    },
+    "task_rate": {
+      "type": "number"
+    },
+    "progress_rate": {
+      "type": "number"
+    }
+  },
+  "required": [
+    "project_id",
+    "stages"
+  ]
+}

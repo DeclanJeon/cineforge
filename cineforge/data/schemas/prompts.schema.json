@@ -1,0 +1,79 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cineforge/prompts.schema.json",
+  "title": "이미지·영상 생성 프롬프트 묶음",
+  "type": "object",
+  "properties": {
+    "project_id": {
+      "type": "string"
+    },
+    "kind": {
+      "type": "string",
+      "enum": [
+        "image",
+        "video"
+      ]
+    },
+    "prompts": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "prompt_id": {
+            "type": "string"
+          },
+          "target": {
+            "type": "string"
+          },
+          "cut_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "character_sheet",
+              "location_plate",
+              "prop",
+              "start_frame",
+              "end_frame",
+              "video"
+            ]
+          },
+          "prompt": {
+            "type": "string"
+          },
+          "negative": {
+            "type": "string"
+          },
+          "refs": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "params": {
+            "type": "object"
+          },
+          "ssot_versions": {
+            "type": "object"
+          }
+        },
+        "required": [
+          "prompt_id",
+          "kind",
+          "prompt",
+          "ssot_versions"
+        ]
+      },
+      "minItems": 1
+    }
+  },
+  "required": [
+    "project_id",
+    "kind",
+    "prompts"
+  ]
+}

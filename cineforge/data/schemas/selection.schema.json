@@ -1,0 +1,149 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cineforge/selection.schema.json",
+  "title": "콘셉트 선택(Selection)",
+  "type": "object",
+  "properties": {
+    "format": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "culture_style": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "era": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "genre": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "subgenre": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "romance_concept": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "world": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "story_nature": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "setting": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "relationship": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "narrative": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "direction": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "string"
+      }
+    },
+    "emotion_arc": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "visual_aesthetic": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "production_method": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "hook": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "duration": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "aspect": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "duration_custom_s": {
+      "type": [
+        "integer",
+        "null"
+      ]
+    },
+    "overrides": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "free_text": {
+      "type": "object"
+    },
+    "sources": {
+      "type": "object"
+    },
+    "constraints": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    }
+  },
+  "required": [
+    "format",
+    "genre",
+    "narrative",
+    "direction",
+    "emotion_arc",
+    "production_method",
+    "aspect"
+  ]
+}
