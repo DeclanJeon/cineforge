@@ -36,6 +36,7 @@ def candidates(home: Path | None = None) -> list[tuple[str, Path]]:
         ('claude', base / '.config/Claude/claude_desktop_config.json'),
         ('gemini', base / '.gemini/settings.json'),
         ('opencode', base / '.config/opencode/opencode.json'),
+        ('pi', base / '.pi/agent/mcp.json'),
         ('mcp', base / '.config/mcp/mcp.json'),
     ]
 
@@ -128,10 +129,12 @@ def sync(rows: list[dict[str, Any]] | None = None, *, target: Path | None = None
     conflicts: list[dict[str, Any]] = []
     added, updated, removed = [], [], []
     for provider, candidates in sorted(grouped.items()):
-        chosen = candidates[0]
+        # Prefer the entry that names its environment variables: it carries the
+        # credential contract the other client already solved.
+        chosen = sorted(candidates, key=lambda row: -len(row.get('env_keys') or []))[0]
         if len(candidates) > 1:
             conflicts.append({'provider': provider, 'chosen': chosen['source'],
-                              'alternatives': sorted({row['source'] for row in candidates[1:]})})
+                              'alternatives': sorted({row['source'] for row in candidates if row is not chosen})})
         entry = {key: chosen.get(key) for key in ('agent', 'source', 'name', 'command', 'args', 'url', 'env_keys')}
         if provider not in previous:
             added.append(provider)

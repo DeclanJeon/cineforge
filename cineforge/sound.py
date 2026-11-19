@@ -21,11 +21,11 @@ KEYS = {
     'suno': 'SUNO_API_KEY',
 }
 LANES = {
-    'BGM': ('suno', 'suno_generate', True),
+    'BGM': ('suno', 'generate_music', True),
     'SFX': ('elevenlabs', 'elevenlabs_sound_effect', False),
     'AMBIENCE': ('elevenlabs', 'elevenlabs_sound_effect', True),
     'DIALOGUE': ('fish_audio', 'fish_audio_tts', False),
-    'OST': ('suno', 'suno_generate', False),
+    'OST': ('suno', 'generate_music', False),
 }
 
 

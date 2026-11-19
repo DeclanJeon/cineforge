@@ -78,12 +78,15 @@ def test_cli_setup_syncs_automatically_and_updates_on_change(tmp_path, monkeypat
 
 def test_sync_reports_conflicts_and_keeps_first_source(tmp_path):
     from cineforge.mcp_discovery import sync
-    rows = [{'agent': 'codex', 'source': '/a/config.toml', 'name': 'suno', 'command': 'a'},
-            {'agent': 'claude', 'source': '/b/.claude.json', 'name': 'suno', 'command': 'b'}]
+    rows = [{'agent': 'codex', 'source': '/a/config.toml', 'name': 'suno', 'command': 'a', 'env_keys': []},
+            {'agent': 'pi', 'source': '/b/mcp.json', 'name': 'suno', 'command': 'b', 'env_keys': ['SUNO_API_KEY']}]
     report = sync(rows, target=tmp_path / 'mcp.json')
-    assert report['conflicts'][0]['provider'] == 'suno' and report['conflicts'][0]['alternatives'] == ['/b/.claude.json']
+    assert report['conflicts'][0]['provider'] == 'suno'
+    assert report['conflicts'][0]['chosen'] == '/b/mcp.json'
+    assert report['conflicts'][0]['alternatives'] == ['/a/config.toml']
     payload = json.loads((tmp_path / 'mcp.json').read_text())
-    assert payload['providers']['suno']['command'] == 'a'
+    assert payload['providers']['suno']['command'] == 'b'
+    assert payload['providers']['suno']['env_keys'] == ['SUNO_API_KEY']
 
 
 def test_no_sync_leaves_existing_cache(tmp_path, monkeypatch, capsys):
