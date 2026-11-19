@@ -1,7 +1,7 @@
 """OpenRouter 실호출 테스트(opt-in).
 
 CINEFORGE_LIVE=1 과 OPENROUTER_API_KEY가 모두 있을 때만 돈다. 기본 실행·CI에서는 건너뛴다.
-호출당 비용: Jev 1.14 약 $0.00002, 생성 모델 1회 약 $0.001 미만(작은 프롬프트).
+호출당 비용: Jev 1.14 약 $0.00002, 기본 생성 모델(openai/gpt-6.2-sol, $2/$10 per M) 1회 약 $0.005 미만(작은 프롬프트).
     CINEFORGE_LIVE=1 OPENROUTER_API_KEY=... python -m pytest -q tests/test_live_openrouter.py
 키는 환경변수에서만 읽고 출력하지 않는다.
 """

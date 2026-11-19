@@ -85,7 +85,7 @@ def test_refusal_is_not_an_answer():
 
 def test_generation_default_model_and_override():
     p = OpenRouterGenerationProvider(env={"OPENROUTER_API_KEY": FAKE_KEY})
-    assert p.available() and p.model == DEFAULT_GEN_MODEL == "openai/gpt-6.1-terra"
+    assert p.available() and p.model == DEFAULT_GEN_MODEL == "openai/gpt-6.2-sol"
     assert OpenRouterGenerationProvider(env={"OPENROUTER_API_KEY": FAKE_KEY, "CINEFORGE_GEN_MODEL": "some/model"}).model == "some/model"
     assert not OpenRouterGenerationProvider(env={"OPENROUTER_API_KEY": FAKE_KEY, "CINEFORGE_GEN_MODEL": "off"}).available()
     assert not OpenRouterGenerationProvider(env={}).available()  # 키 없으면 절대 호출 안 함

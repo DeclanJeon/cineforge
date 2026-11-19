@@ -26,8 +26,8 @@ TYPESAFE_BASE = "https://api.typesafe.ai/v1"
 JEV_OPENROUTER_SLUG = "typesafe/jev-1.14"          # 2026-11-19 확인: openrouter.ai/typesafe/jev-1.14
 JEV_OPENROUTER_PINNED = "typesafe/jev-1.14-20261014"
 JEV_TYPESAFE_MODEL = "jev-1.14.0"
-# 기획안·문장 생성 기본 모델(ADR-008). CINEFORGE_GEN_MODEL로 덮어쓰고, "off"/"none"이면 끈다.
-DEFAULT_GEN_MODEL = "openai/gpt-6.1-terra"
+# 기획안·문장 생성 기본 모델(ADR-010, 사용자 지정 "6.2 sol"). CINEFORGE_GEN_MODEL로 덮어쓰고, "off"/"none"이면 끈다.
+DEFAULT_GEN_MODEL = "openai/gpt-6.2-sol"
 GEN_MODEL_DISABLED = {"off", "none", "0", "false", ""}
 
 
@@ -120,7 +120,7 @@ class JevOpenRouterDecisionProvider(DecisionProvider):
 class OpenRouterGenerationProvider(GenerationProvider):
     """OpenRouter의 일반 생성 모델(문장·기획안 생성). Jev는 생성용이 아니므로 별도 모델을 쓴다.
 
-    기본 모델은 DEFAULT_GEN_MODEL(ADR-008). CINEFORGE_GEN_MODEL로 덮어쓰고 "off"면 끈다.
+    기본 모델은 DEFAULT_GEN_MODEL(ADR-010). CINEFORGE_GEN_MODEL로 덮어쓰고 "off"면 끈다.
     유료 호출의 opt-in은 OPENROUTER_API_KEY 설정 자체다(키가 없으면 절대 호출하지 않음).
     """
 
