@@ -1,0 +1,132 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cineforge/ssot_world.schema.json",
+  "title": "World SSOT",
+  "type": "object",
+  "properties": {
+    "ssot_type": {
+      "type": "string",
+      "enum": [
+        "world"
+      ]
+    },
+    "version": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "updated_at": {
+      "type": "string"
+    },
+    "source_hash": {
+      "type": "string"
+    },
+    "locked": {
+      "type": "boolean"
+    },
+    "depends_on": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "data": {
+      "type": "object",
+      "properties": {
+        "era": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "world": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "rules": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "locations": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "name": {
+                "type": "string"
+              },
+              "description": {
+                "type": "string"
+              },
+              "layout": {
+                "type": "string"
+              },
+              "lighting": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "id",
+              "name"
+            ]
+          },
+          "minItems": 1
+        },
+        "props": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "name": {
+                "type": "string"
+              },
+              "era_valid": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "id",
+              "name"
+            ]
+          }
+        },
+        "forbidden_props": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "required": [
+        "locations",
+        "props",
+        "forbidden_props",
+        "rules"
+      ]
+    },
+    "upstream_versions": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "integer"
+      },
+      "description": "작성 시점의 상위 SSOT 버전"
+    }
+  },
+  "required": [
+    "ssot_type",
+    "version",
+    "source_hash",
+    "locked",
+    "depends_on",
+    "data"
+  ]
+}
