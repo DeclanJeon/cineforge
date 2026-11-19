@@ -45,7 +45,9 @@ def build_payload(selection: dict[str, Any], concept: dict[str, Any], intake: di
                   avg_cut_s: float | None) -> dict[str, Any]:
     narrative = selection.get("narrative") or "twist"
     seconds = concept["concept"]["duration_s"]
+    action_mode = any('액션' in str(value) for value in (concept["concept"].get("genres", []), labels.get("genre", "")))
     return {
+        "profile": "action" if action_mode else "default",
         "request": intake.get("request", ""),
         "selection": {k: v for k, v in selection.items() if k != "sources"},
         "selection_labels": labels,
@@ -69,6 +71,8 @@ def build_payload(selection: dict[str, Any], concept: dict[str, Any], intake: di
 
 def mock_plan(payload: dict[str, Any]) -> dict[str, Any]:
     """결정론적 템플릿 기획안(오프라인). 구조·타이밍·필드가 완전하도록 채운다."""
+    from .action import action_cuts
+
     seconds = float(payload["duration_s"])
     concept = payload["concept"]
     labels = payload.get("selection_labels", {})
@@ -94,7 +98,12 @@ def mock_plan(payload: dict[str, Any]) -> dict[str, Any]:
         n_cuts = max(1, int(math.floor(length / avg + 0.5)))
         cut_lengths = split_durations(length, n_cuts)
         cuts = []
-        for c_idx, cl in enumerate(cut_lengths):
+        if payload.get("profile") == "action":
+            cuts = action_cuts(length, characters, beat["purpose"])
+            for offset, row in enumerate(cuts):
+                row["no"] = cut_no + offset + 1
+            cut_no += len(cuts)
+        for c_idx, cl in enumerate([] if payload.get("profile") == "action" else cut_lengths):
             cut_no += 1
             who = characters[(cut_no + 1) % 2]
             shot = SHOT_CYCLE[(cut_no - 1) % len(SHOT_CYCLE)]
@@ -102,7 +111,8 @@ def mock_plan(payload: dict[str, Any]) -> dict[str, Any]:
             cuts.append({
                 "no": cut_no, "duration": cl, "shot": shot,
                 "visual": f"{who['name']} {shot}, {beat['purpose']}",
-                "sound": "효과음·음악으로 감정 강조" if no_speech or not line else "대사 + 앰비언스",
+                "sound": ("대사 + 앰비언스" if line else
+                           f"효과음: {beat['purpose']} 동작음" if shot in ("인서트", "와이드샷") else "앰비언스"),
                 "dialogue": line, "speaker": who["id"] if line else None,
                 "characters": [c["id"] for c in characters] if shot == "투샷" else [who["id"]],
             })
@@ -117,7 +127,7 @@ def mock_plan(payload: dict[str, Any]) -> dict[str, Any]:
     return {
         "version": "1.0", "generated_by": "mock", "title": title,
         "logline": f"{lead_name}에게 예상치 못한 사건이 일어나고, 마지막에 그 의미가 드러난다.",
-        "meta": {"format": concept["format"], "genres": concept.get("genres", []) + concept.get("subgenres", []),
+        "meta": {"profile": payload.get("profile", "default"), "format": concept["format"], "genres": concept.get("genres", []) + concept.get("subgenres", []),
                  "runtime_s": seconds, "scene_count": len(scenes), "cut_count": cut_no, "aspect": concept["aspect"],
                  "style": concept["subtitle"], "narrative": concept.get("narrative") or "", "strategy": " → ".join(b["label"] for b in beats)},
         "synopsis": f"[목업 초안] {concept['title_line']}. {concept.get('chain', '')}. 감정 곡선: {concept.get('emotion_arc', '')}.",

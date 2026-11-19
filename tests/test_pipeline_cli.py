@@ -15,7 +15,7 @@ def _status(root):
 
 
 def test_mock_pipeline_gates_and_authority(tmp_path, capsys):
-    assert main(["new", SAMPLE_REQUEST, "--projects-dir", str(tmp_path), "--project-id", "p", "--provider", "mock", "--non-interactive"]) == 0
+    assert main(["new", SAMPLE_REQUEST, "--projects-dir", str(tmp_path), "--project-id", "p", "--provider", "mock", "--non-interactive", "--no-nonstop"]) == 0
     root = tmp_path / "p"
     st = _status(root)
     assert st["S03_plan"] == "done" and st["G1_plan_review"] == "waiting_user"

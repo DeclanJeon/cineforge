@@ -9,6 +9,13 @@ API 키가 필요 없고, 유료 호출도 없다.
 from __future__ import annotations
 
 import json
+import hashlib
+import hmac
+import os
+import secrets
+
+from cineforge.host_sign import sign
+from cineforge.receipts import atomic_text
 import re
 from pathlib import Path
 from typing import Any
@@ -33,6 +40,34 @@ class _HostIO:
         slug = _slug(task)
         req = self.requests / f"{slug}.json"
         res = self.responses / f"{slug}.json"
+        previous = json.loads(req.read_text()) if req.is_file() else {}
+        keyfile = os.environ.get("CINEFORGE_HOST_KEY_FILE")
+        if keyfile or "signed_request_id" in previous:
+            if not keyfile:
+                raise ProviderError("signed host key missing")
+            key = Path(keyfile).read_bytes()
+            if len(key) < 32:
+                raise ProviderError("host key too short")
+            packet = dict(request, task=task, workspace=str(self.io_dir.resolve()),
+                          signed_request_id=previous.get("signed_request_id") or secrets.token_hex(16),
+                          key_pin=hashlib.sha256(key).hexdigest(), response_path=str(res.resolve()))
+            if previous.get("signed_request_id") and packet != previous:
+                raise ProviderError("signed host request changed")
+            if res.exists():
+                envelope = json.loads(res.read_text())
+                if not isinstance(envelope, dict) or not isinstance(envelope.get("body"), dict):
+                    raise ProviderError("invalid signed host reply")
+                expected = sign(packet, envelope["body"], key)
+                sig = envelope.get("signature")
+                if (packet != previous or not isinstance(sig, str) or not sig.isascii()
+                        or not hmac.compare_digest(sig, expected["signature"])
+                        or expected["request_digest"] != envelope.get("request_digest")):
+                    raise ProviderError("signed host reply mismatch")
+                return envelope["body"]
+            self.requests.mkdir(parents=True, exist_ok=True)
+            self.responses.mkdir(parents=True, exist_ok=True)
+            atomic_text(req, json.dumps(packet, ensure_ascii=False, indent=2))
+            raise AgentInputRequired(req, res, task)
         if res.is_file():
             try:
                 return json.loads(res.read_text(encoding="utf-8"))

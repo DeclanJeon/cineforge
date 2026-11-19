@@ -112,7 +112,7 @@ def rights_safety(ssots: dict[str, dict[str, Any]], selection: dict[str, Any], i
     if intake.get("factors", {}).get("reference", {}).get("status") == "provided" or selection.get("free_text", {}).get("reference"):
         issues.append(_issue("RS03", "info", "레퍼런스는 구조·리듬만 참고하고 원본 영상·음악·대사·캐릭터를 재사용하지 않습니다(출처 기록 필요)"))
     if "ai_persona_disclosure" in selection.get("constraints", []):
-        issues.append(_issue("RS05", "info", "AI 페르소나(한서윤) 콘텐츠: 캡션·프로필에서 AI임을 숨기지 않음"))
+        issues.append(_issue("RS05", "info", "AI 페르소나 콘텐츠: 캡션·프로필에서 AI임을 숨기지 않음"))
     issues.append(_issue("RS04", "info", "AI 생성 콘텐츠 표기: 게시 시 플랫폼 AI 표시 기능·해시태그로 공개(영상 내 코너 라벨은 넣지 않음)"))
     return issues
 

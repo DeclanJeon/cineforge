@@ -28,12 +28,15 @@ IMPACT_TO_STAGE = {"plan": "S03_plan", "story": "S04_story", "concept": "S04_sto
                    "audio": "S07_assets", "assets/image_prompts": "S07_assets", "assets/video_prompts": "S07_assets",
                    "assets/frames": "S07_assets", "assets/sound_cue_sheet": "S07_assets"}
 DEFAULT_AUTHORITY = {"accept_plan": False, "accept_preproduction": False, "execution": False, "edit": False, "publish": False,
-                     "spend_ceiling": None, "granted_by": "user", "granted_at": None, "notes": []}
+                     "image_limit": None, "spend_ceiling": None, "granted_by": "user", "granted_at": None, "notes": []}
 
 
 def slugify(text: str) -> str:
     base = re.sub(r"[^0-9A-Za-z가-힣]+", "-", text).strip("-")[:24] or "project"
     return f"{datetime.now().strftime('%Y%m%d-%H%M%S')}-{base}"
+
+
+from .receipts import atomic_text, pins
 
 
 class Project:
@@ -58,7 +61,7 @@ class Project:
         p = self.root / rel
         p.parent.mkdir(parents=True, exist_ok=True)
         text = data if isinstance(data, str) else json.dumps(data, ensure_ascii=False, indent=2)
-        p.write_text(text, encoding="utf-8")
+        atomic_text(p, text)
         return p
 
     def log(self, event: str, **fields: Any) -> None:
@@ -135,6 +138,8 @@ class Project:
     def grant(self, **changes: Any) -> dict[str, Any]:
         auth = self.authority()
         for key, value in changes.items():
+            if key == "image_limit" and (type(value) is not int or value < 0):
+                raise ValueError("image-limit must be a nonnegative integer")
             if key not in DEFAULT_AUTHORITY:
                 raise KeyError(key)
             auth[key] = value
@@ -162,6 +167,16 @@ class Project:
         }
         for stage in self.pipeline["stages"]:
             sid = stage["id"]
+            if sid in EXTERNAL_STAGES:
+                receipt = self.read(f"receipts/{sid}.json")
+                status = prog["stages"][sid]["status"]
+                if status == "done" or receipt is not None:
+                    if not receipt or not receipt.get("outputs"):
+                        raise ValueError(f"receipt missing: {sid}")
+                    self.complete(sid, list(receipt["outputs"]))
+                    prog = self.progress()
+                elif status == "waiting_external":
+                    return prog
             if prog["stages"][sid]["status"] in ("done", "skipped"):
                 continue
             runner = runners.get(sid)
@@ -297,6 +312,15 @@ class Project:
                   "inputs": [str(p.relative_to(self.root)) for p in sorted((self.root / "ssot").glob("*.json"))] + ["plan.json", "selection.json"],
                   "outputs_expected": stage["outputs"], "packet": extra or {},
                   "completion_command": f"cineforge complete {self.root} {sid} --evidence <파일...>"}
+        if sid in EXTERNAL_STAGES:
+            names = packet["inputs"] + (extra or {}).get("prompts", []) + list((extra or {}).get("images", {}).values())
+            for previous in self.pipeline["stages"]:
+                if previous["id"] == sid:
+                    break
+                receipt = self.read(f"receipts/{previous['id']}.json") if previous["id"] in EXTERNAL_STAGES else None
+                if receipt:
+                    names.extend(receipt["outputs"])
+            packet["input_pins"] = pins(self.root, names)
         self.write(f"handoffs/{sid}.json", packet, "handoff")
         return packet
 
@@ -309,7 +333,11 @@ class Project:
         return True
 
     def _script_md(self) -> str:
+        from .audio_design import design as audio_design
+
         plan = self.read("plan.json")
+        selection = self.read("selection.json") or {}
+        silent = selection.get("direction", {}).get("sound") == "silent" or "no_speech" in selection.get("constraints", [])
         names = {c["id"]: c["name"] for c in plan["characters"]}
         out = [f"# 대본 — {plan['title']}", ""]
         for s in plan["scenes"]:
@@ -318,6 +346,12 @@ class Project:
                 out.append(f"- ({c['no']:02d}, {c['duration']:g}s) {c['visual']}")
                 if c.get("dialogue"):
                     out.append(f"  - **{names.get(c.get('speaker'), c.get('speaker') or '?')}**: {c['dialogue']}")
+                if c.get("sound"):
+                    out.append(f"  - 사운드: {c['sound']}")
+            design = next(row for row in audio_design(plan, silent=silent) if row.scene_no == s["no"])
+            layers = [f"OST({design.ost})" if design.ost else "BGM", design.ambience,
+                      *(f"효과음({item})" for item in design.sfx)]
+            out.append(f"- 사운드 설계: {' · '.join(layers)}")
             out.append("")
         return "\n".join(out)
 
@@ -351,6 +385,10 @@ class Project:
         self.write("assets/image_prompts.json", assets.image_prompts(pid, ss, aspect, look), "prompts")
         self.write("assets/video_prompts.json", assets.video_prompts(pid, ss, aspect, silent), "prompts")
         self.write("assets/sound_cue_sheet.json", assets.sound_cue_sheet(pid, ss, runtime), "sound_cue_sheet")
+        from .sound import plan as sound_plan, write_plan
+        mood = self.read("plan.json")["production_spec"].get("bgm") or "장면 정서에 맞춘 절제된 긴장"
+        era = ss["world"]["data"].get("era") or ""
+        write_plan(self.root, sound_plan(ss["audio"]["data"]["cues"], mood=mood, era=era), selected={})
         self._handoff("S07_assets", {"enrich": "video-production-assets(11-ai-handoff)·ai-camera-control(R19)로 모델별 프롬프트 방언 변환은 실행 직전에"})
         self.set_stage(prog, "S07_assets", "done", ", ".join(written) + " · 에셋/프레임/프롬프트/큐시트 작성")
         return True
@@ -363,6 +401,9 @@ class Project:
         issues = qa.continuity(ss, float(plan["meta"]["runtime_s"])) + qa.constraints(ss, img + vid, sel.get("direction", {}).get("sound") == "silent",
                                                                                     "no_speech" in sel.get("constraints", [])) + qa.identity(ss, img) \
             + qa.rights_safety(ss, sel, intake)
+        if plan["meta"].get("profile") == "action":
+            from .action import validate as action_issues
+            issues += action_issues(ss)
         method = self.tax.get("production_method", sel["production_method"]).data.get("ai_difficulty", 1) if sel.get("production_method") else 1
         cost = qa.cost_plan(ss, method)
         review = qa.report("G2_preproduction_review", issues, {"cost_plan": cost, "ssot_versions": self.store.versions()})
@@ -385,6 +426,25 @@ class Project:
         if sid == "S08_generation":
             extra["cost_plan"] = (self.read("reviews/preproduction_review.json") or {}).get("summary", {}).get("cost_plan")
             extra["prompts"] = ["assets/image_prompts.json", "assets/video_prompts.json", "assets/frames.json"]
+            rows = self.read("assets/image_prompts.json")["prompts"]
+            extra["image_engine"] = "codex-imagen"
+            extra["image_job_count"] = len(rows)
+            limit = self.authority().get("image_limit")
+            if limit is None and "nonstop" in self.authority().get("notes", []) and not self.authority().get("execution"):
+                self._handoff(sid, extra)
+                self.set_stage(prog, sid, "blocked", f"이미지 작업 {len(rows)}개 계획. 실행 범위 상한: cineforge run <project> --image-limit N (Codex Imagen 정지 이미지는 유료 견적 대상 아님); 영상 execution 권한은 별도")
+                return False
+            if limit is not None:
+                from .image_queue import generate
+                supplied = self.read("assets/supplied_images.json") or {}
+                images = generate(self.root, rows, limit, supplied=supplied)
+                self.write("assets/image_outputs.json", images)
+                registry = self.read("assets/asset_registry.json")
+                for row in registry["assets"]:
+                    if row["asset_id"] in images:
+                        row.update(status="available", path=images[row["asset_id"]], sha256=pins(self.root, [images[row["asset_id"]]])[images[row["asset_id"]]])
+                self.write("assets/asset_registry.json", registry, "asset_registry")
+                extra["images"] = images
         packet = self._handoff(sid, extra)
         if stage.get("requires_authority") and not packet["authority_granted"]:
             self.set_stage(prog, sid, "blocked", f"'{stage['requires_authority']}' 권한 필요 → `cineforge grant <프로젝트> {stage['requires_authority']}`"
@@ -404,11 +464,26 @@ class Project:
     def complete(self, sid: str, evidence: list[str]) -> None:
         if sid not in EXTERNAL_STAGES:
             raise ValueError(f"{sid}는 외부 완료 대상이 아닙니다")
-        missing = [e for e in evidence if not (Path(e).exists() or (self.root / e).exists())]
-        if not evidence or missing:
-            raise FileNotFoundError(f"증거 파일이 필요합니다(없음: {missing or '미제출'}) — API 성공·프롬프트만으로는 완료가 아닙니다")
         prog = self.progress()
-        self.set_stage(prog, sid, "done", f"증거 {len(evidence)}개", evidence=evidence)
+        state = prog["stages"][sid]["status"]
+        packet = self.read(f"handoffs/{sid}.json") or {}
+        inputs = packet.get("input_pins")
+        existing = self.read(f"receipts/{sid}.json")
+        if state not in ("waiting_external", "done") or not evidence or not inputs:
+            raise ValueError(f"receipt not eligible: {sid}")
+        if not packet.get("authority_granted") or (packet["authority_required"] and not self.authority().get(packet["authority_required"])):
+            raise ValueError(f"receipt authority missing: {sid}")
+        if pins(self.root, list(inputs)) != inputs:
+            raise ValueError(f"receipt inputs changed: {sid}")
+        outputs = pins(self.root, evidence)
+        receipt = {"stage": sid, "inputs": inputs, "outputs": outputs}
+        if existing != receipt and (existing is not None or state == "done"):
+            raise ValueError(f"receipt mismatch: {sid}")
+        if state == "done":
+            return
+        if existing is None:
+            self.write(f"receipts/{sid}.json", receipt)
+        self.set_stage(prog, sid, "done", f"검증된 증거 {len(outputs)}개", evidence=list(outputs))
 
     def accept(self, gate: str) -> None:
         prog = self.progress()

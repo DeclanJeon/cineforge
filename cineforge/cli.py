@@ -73,10 +73,18 @@ def cmd_new(args: argparse.Namespace) -> int:
         print("요구사항(request)이 필요합니다.", file=sys.stderr)
         return 2
     inputs = {k: getattr(args, k) for k in ("script", "scenario", "reference", "lead_character", "voice") if getattr(args, k, None)}
+    if args.nonstop and not args.confirm_all:
+        args.non_interactive = True
+    if args.with_dialogue:
+        inputs["with_dialogue"] = True
     if args.no_speech:
         inputs["no_speech"] = True
     project = Project.create(Path(args.projects_dir), request, args.provider, args.project_id, inputs=inputs)
     print(f"프로젝트: {project.root}")
+    if args.nonstop:
+        project.grant(accept_plan=True, accept_preproduction=True, notes=["nonstop"])
+    if args.image_limit is not None:
+        project.grant(image_limit=args.image_limit)
     project.run(until="S00_intake")
     intake = project.read("intake.json")
     if intake is None:
@@ -114,9 +122,13 @@ def cmd_new(args: argparse.Namespace) -> int:
 
 
 def _run_and_report(project: Project, until: str | None) -> int:
+    from cineforge.progress import share
+    from cineforge.ui import panel, supports_color
+
     prog = project.run(until=until, echo=print)
+    share(project.root)
     print()
-    print(render(prog, load("pipeline.yaml")))
+    print(panel(prog, load("pipeline.yaml"), color=supports_color()))
     concept = project.read("concept.json")
     if concept:
         c, e = concept["concept"], concept["evaluation"]
@@ -163,16 +175,55 @@ def cmd_select(args: argparse.Namespace) -> int:
 
 def cmd_run(args: argparse.Namespace) -> int:
     project = Project(Path(args.project), router=build_router(args.provider, io_dir=Path(args.project) / "agent_io") if args.provider else None)
+    if args.image_limit is not None:
+        project.grant(image_limit=args.image_limit)
     return _run_and_report(project, args.until)
+
+
+def cmd_setup(args: argparse.Namespace) -> int:
+    from getpass import getpass
+
+    from cineforge.sound import KEYS, MCP_SERVERS, SetupError, apply, remove_key, set_key, status
+
+    try:
+        if args.set_key:
+            set_key(args.set_key, getpass(f"{args.set_key} 키 입력(표시되지 않음): "))
+            print(f"{args.set_key} 키를 등록했습니다: {KEYS[args.set_key]}")
+            return 0
+        if args.remove_key:
+            remove_key(args.remove_key)
+            print(f"{args.remove_key} 키를 삭제했습니다.")
+            return 0
+        if args.apply:
+            done = apply(args.apply, yes=args.yes, host=args.host)
+            print("설치 완료: " + ", ".join(done) + f" (host={args.host})")
+            return 0
+    except SetupError as exc:
+        print(f"설정 실패: {exc}", file=sys.stderr)
+        return 1
+    for row in status():
+        print(f"{row['server']:<12} 명령 {'준비' if row['command_available'] else '없음':<3} "
+              f"키 {'등록' if row['key_registered'] else '없음':<3} {row['purpose']}")
+    print("설치: cineforge setup --apply " + " ".join(MCP_SERVERS) + " --yes")
+    print("키 등록: cineforge setup --set-key <server>  (값은 숨김 입력)")
+    return 0
 
 
 def cmd_status(args: argparse.Namespace) -> int:
     project = Project(Path(args.project))
     prog = project.progress()
+    from cineforge.progress import share, snapshot
+    from cineforge.ui import banner, panel, supports_color
+
+    state = snapshot(args.project)
+    share(args.project)
     if args.json:
-        print(json.dumps(prog, ensure_ascii=False, indent=2))
+        print(json.dumps(state, ensure_ascii=False, indent=2))
     else:
-        print(render(prog, load("pipeline.yaml")))
+        color = supports_color()
+        print(banner(color=color))
+        print()
+        print(panel(prog, load("pipeline.yaml"), color=color))
     return 0
 
 
@@ -254,9 +305,12 @@ def build_parser() -> argparse.ArgumentParser:
     n.add_argument("--reference", help="레퍼런스 URL 또는 설명")
     n.add_argument("--lead-character", help="주연 캐릭터 이름/파일")
     n.add_argument("--voice", help="목소리 방침")
-    n.add_argument("--no-speech", action="store_true", help="대사·음성 없음(효과음·연출만)")
+    speech = n.add_mutually_exclusive_group()
+    speech.add_argument("--with-dialogue", action="store_true", help="극영화 대사 사용")
+    speech.add_argument("--no-speech", action="store_true", help="대사·음성 없음(효과음·연출만)")
     n.add_argument("--auto-accept-plan", action="store_true", help="기획안 자동 검수 통과 시 사용자 승인으로 간주(사용자가 명시적으로 위임)")
-    n.add_argument("--nonstop", action="store_true", help="기획안·프리프로덕션 승인을 미리 위임(생성 비용 권한은 별도 grant)")
+    n.add_argument("--nonstop", action=argparse.BooleanOptionalAction, default=True, help="기본: 자동 기획, --no-nonstop: 수동 검토")
+    n.add_argument("--image-limit", type=int, help="Codex Imagen 실행·참조 전송 범위 상한(작품 누적 건수). 비용 승인 아님")
     n.add_argument("--until", help="이 단계까지만 실행(예: S03_plan)")
     n.set_defaults(func=cmd_new)
 
@@ -273,7 +327,16 @@ def build_parser() -> argparse.ArgumentParser:
     r.add_argument("project")
     r.add_argument("--provider", choices=MODES)
     r.add_argument("--until")
+    r.add_argument("--image-limit", type=int, help="Codex Imagen 실행 범위 상한(누적 건수). 비용 승인 아님")
     r.set_defaults(func=cmd_run)
+
+    su = sub.add_parser("setup", help="필요 MCP 서버 확인·설치·키 등록")
+    su.add_argument("--apply", nargs="+", metavar="SERVER", help="선택한 MCP 서버 설치 실행")
+    su.add_argument("--yes", action="store_true", help="설치 실행 확인(없으면 거부)")
+    su.add_argument("--host", choices=["codex", "claude", "pi"], default="codex")
+    su.add_argument("--set-key", metavar="SERVER", help="키를 숨김 입력으로 등록")
+    su.add_argument("--remove-key", metavar="SERVER")
+    su.set_defaults(func=cmd_setup)
 
     s = sub.add_parser("status", help="진행률·작업률·검수 상태")
     s.add_argument("project")

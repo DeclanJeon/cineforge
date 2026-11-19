@@ -58,3 +58,61 @@ def render(progress: dict[str, Any], pipeline: dict[str, Any]) -> str:
         if stage.get("note") and stage["status"] not in ("done", "pending"):
             lines.append(f"    └ {stage['note']}")
     return "\n".join(lines)
+
+
+def next_action(progress: dict[str, Any], pipeline: dict[str, Any]) -> str:
+    """First stage that needs a human, an agent, or a provider."""
+    for sid, stage in progress["stages"].items():
+        if stage["status"] in ("done", "skipped"):
+            continue
+        if stage["status"] == "blocked":
+            return f'{sid}: {stage.get("note") or "권한 또는 입력이 필요합니다"}'
+        if stage["status"] in ("waiting_user", "waiting_agent", "waiting_external"):
+            return f'{sid}: {stage.get("note") or "외부 담당 결과 대기"}'
+        if stage["status"] == "failed":
+            return f'{sid}: 실패 — {stage.get("note") or "원인 확인"}'
+        ko = next((s["ko"] for s in pipeline["stages"] if s["id"] == sid), sid)
+        return f'{sid} {ko}: {stage.get("note") or ("실행 중" if stage["status"] == "running" else "실행 대기")}'
+    return "남은 단계 없음"
+
+
+def blockers(progress: dict[str, Any]) -> list[str]:
+    return [f'{sid}: {stage.get("note") or stage["status"]}' for sid, stage in progress["stages"].items()
+            if stage["status"] in ("blocked", "failed")]
+
+
+def snapshot(root) -> dict[str, Any]:
+    """One agent-readable view of the project; same facts the panel prints."""
+    import json
+    from pathlib import Path
+
+    from .data_loader import load
+
+    base = Path(root)
+    progress = json.loads((base / "progress.json").read_text(encoding="utf-8"))
+    pipeline = load("pipeline.yaml")
+    names = {s["id"]: s for s in pipeline["stages"]}
+    task_rate, progress_rate = rates(progress, pipeline)
+    stages = {}
+    for sid, stage in progress["stages"].items():
+        tasks = stage.get("tasks") or {}
+        stages[sid] = {"status": stage["status"], "done": sum(1 for v in tasks.values() if v == "done"),
+                       "total": len(tasks), "qa": (stage.get("qa") or {}).get("status"),
+                       "note": stage.get("note"), "skills": list(names.get(sid, {}).get("skills", []))}
+    return {"schema_version": 1, "project_id": progress["project_id"], "project_root": str(base.resolve()),
+            "current_stage": progress.get("current_stage"), "progress_rate": progress_rate,
+            "task_rate": task_rate, "updated_at": progress.get("updated_at"), "next_action": next_action(progress, pipeline),
+            "blocked": blockers(progress), "stages": stages}
+
+
+def share(root) -> "Path":
+    """Publish the snapshot where any agent can read it, atomically."""
+    import json
+    from pathlib import Path
+
+    from .receipts import atomic_text
+
+    target = Path(root) / "agent_io" / "progress.json"
+    target.parent.mkdir(parents=True, exist_ok=True)
+    atomic_text(target, json.dumps(snapshot(root), ensure_ascii=False, indent=2))
+    return target

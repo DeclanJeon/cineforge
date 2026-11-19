@@ -167,7 +167,9 @@ def build_all(plan: dict[str, Any], concept: dict[str, Any], selection: dict[str
             present = c.get("characters") or ([c["speaker"]] if c.get("speaker") else char_ids[:1])
             cuts.append({"cut_id": cut_id, "scene_no": s["no"], "cut_no": c["no"], "start": round(t, 2), "end": round(t + float(c["duration"]), 2),
                          "duration": float(c["duration"]), "location_id": loc, "characters": present, "start_state": start_state, "end_state": end_state,
-                         "state_changes": st.get("changes", []), "dialogue": c.get("dialogue") or None, "speaker": c.get("speaker"), "visual": c["visual"]})
+                         "state_changes": st.get("changes", []), "dialogue": c.get("dialogue") or None, "speaker": c.get("speaker"), "visual": c["visual"],
+                         "sound": c.get("sound") or "", "impact": bool(c.get("impact", False)),
+                         "beat": c.get("beat")})
             shot = c.get("shot") or "미디엄샷"
             cams.append({"cut_id": cut_id, "shot_size": shot, "lens_mm": int(c.get("lens_mm") or LENS_BY_SHOT.get(shot, 50)),
                          "angle": c.get("angle", "아이레벨"), "movement": c.get("camera", "고정"), "axis_side": c.get("axis_side", "A"),
@@ -177,9 +179,13 @@ def build_all(plan: dict[str, Any], concept: dict[str, Any], selection: dict[str
             carry = end_state
             t += float(c["duration"])
     silent = selection.get("direction", {}).get("sound") == "silent" or "no_speech" in selection.get("constraints", [])
-    cues = build_cues(cuts, plan, silent)
+    from .audio_design import cues_from_plan
+    cues = cues_from_plan(cuts, plan, silent)
     audio = {"voices": [{"character_id": c["id"], "type": "silent" if silent else "dialogue", "description": c.get("voice", "")} for c in chars],
-             "music_themes": [{"id": "TH01", "description": plan["production_spec"].get("bgm", ""), "license": "original-to-generate"}],
+             "music_themes": [
+                 {"id": "TH01", "description": f"주제가(OST): {plan.get('title', '')} — {plan['production_spec'].get('bgm', '')}",
+                  "license": "original-to-generate", "vocal": not silent},
+                 {"id": "TH02", "description": f"언더스코어: {plan['production_spec'].get('bgm', '')}", "license": "original-to-generate", "vocal": False}],
              "ambience": [{"location_id": l["id"], "description": f"{l['name']} 공간음"} for l in locations.values()],
              "cues": cues}
     return {"concept": concept_data, "story": story, "character": character, "world": world, "scene": {"cuts": cuts},

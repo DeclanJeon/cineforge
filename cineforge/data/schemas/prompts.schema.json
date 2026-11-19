@@ -35,8 +35,11 @@
             "type": "string",
             "enum": [
               "character_sheet",
+              "wardrobe",
               "location_plate",
+              "location_spatial_sheet",
               "prop",
+              "prop_reference",
               "start_frame",
               "end_frame",
               "video"
@@ -59,6 +62,12 @@
           },
           "ssot_versions": {
             "type": "object"
+          },
+          "view_ids": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
           }
         },
         "required": [

@@ -105,11 +105,13 @@
               "type": {
                 "type": "string",
                 "enum": [
+                  "OST",
                   "BGM",
+                  "AMBIENCE",
+                  "AMB",
                   "SFX",
                   "DIALOGUE",
                   "VO",
-                  "AMB",
                   "SILENCE"
                 ]
               },
@@ -138,6 +140,12 @@
                 "type": "string"
               },
               "notes": {
+                "type": "string"
+              },
+              "vocal": {
+                "type": "boolean"
+              },
+              "role": {
                 "type": "string"
               }
             },
