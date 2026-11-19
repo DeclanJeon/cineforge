@@ -31,12 +31,12 @@ cineforge taxonomy --axis narrative
 
 | 환경변수 | 용도 |
 |---|---|
-| `OPENROUTER_API_KEY` | Jev 1.14 판단(OpenRouter, 실험), 그리고 생성 모델 |
+| `OPENROUTER_API_KEY` | Jev 1.14 판단(OpenRouter Decisions API, 실호출 확인), 그리고 생성 모델. **키를 넣는 것이 유료 호출의 opt-in** |
 | `TYPESAFE_API_KEY` | Jev 1.14 판단(TypeSafe 직접 API) |
-| `CINEFORGE_GEN_MODEL` | 기획안 생성에 쓸 OpenRouter 모델 slug(지정해야만 켜짐) |
+| `CINEFORGE_GEN_MODEL` | 기획안 생성 모델 slug. 기본값 `openai/gpt-6.1-terra`(ADR-008), 다른 slug로 덮어쓰기, `off`면 끔 |
 | `CINEFORGE_AGENT_MODE=1` | auto 모드에서도 호스트 AI에게 판단·생성을 맡김 |
 
-`--provider host`이면 `agent_io/requests/*.json`을 에이전트가 읽고 `agent_io/responses/*.json`을 쓰면 `cineforge run`으로 이어집니다. `--provider mock`은 네트워크 없이 끝까지 시험합니다. 키는 환경변수로만 받고 파일·로그에 남기지 않습니다. CineForge는 유료 이미지·영상 생성 API를 직접 호출하지 않습니다.
+`--provider host`이면 `agent_io/requests/*.json`을 에이전트가 읽고 `agent_io/responses/*.json`을 쓰면 `cineforge run`으로 이어집니다. `--provider mock`은 네트워크 없이 끝까지 시험합니다. 실호출 테스트는 `CINEFORGE_LIVE=1 python -m pytest -q tests/test_live_openrouter.py`(키 필요, 1회 약 $0.001 미만). 키는 환경변수로만 받고 파일·로그에 남기지 않습니다. CineForge는 유료 이미지·영상 생성 API를 직접 호출하지 않습니다.
 
 ## 구조
 

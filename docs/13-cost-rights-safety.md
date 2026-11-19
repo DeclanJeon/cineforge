@@ -2,7 +2,7 @@
 
 ## 1. 비용(L4)
 
-- CineForge 자체는 유료 생성 API를 부르지 않는다. 판단(Jev)과 문장 생성(OpenRouter)은 사용자가 키·모델을 설정했을 때만.
+- CineForge 자체는 유료 이미지·영상 생성 API를 부르지 않는다. 판단(Jev)과 문장 생성(OpenRouter, 기본 `openai/gpt-6.1-terra`)은 사용자가 `OPENROUTER_API_KEY`를 설정했을 때만 쓴다. 문장 생성만 끄려면 `CINEFORGE_GEN_MODEL=off`.
 - G2의 `cost_plan`: 컷마다 난이도 = 제작 방식 난이도 + 인물 수 + 카메라 움직임(2) + 상태 변화(1) + 5초 초과(1). 상위 20% 컷만 `high` 티어, 나머지 `standard`.
 - 단가는 `UNVERIFIED` — 실행 직전 공급자 가격을 실제 조회한다(스킬의 실행 게이트).
 - 재생성 정책: 검수 실패 컷과 영향 분석으로 나온 의존 대상만.
