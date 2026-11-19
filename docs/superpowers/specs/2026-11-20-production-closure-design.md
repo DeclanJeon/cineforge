@@ -72,7 +72,7 @@ accepted → verified (QA 통과) | stale (입력 변경)
 | 자산 | 기본 실행기 | MCP 도구 | 승인 |
 |---|---|---|---|
 | 스틸 | codex-imagen | `image_generation` | 실행 범위 상한(`--image-limit`) |
-| OST/BGM | Suno | `suno_generate` | `execution` + 작품 예산 |
+| OST/BGM | Suno 공식 원격 MCP | 연결 후 확정 (`https://api.suno.com/mcp`, OAuth) | `execution` + 작품 예산 |
 | 효과음/공간음 | ElevenLabs | `elevenlabs_sound_effect` | `execution` |
 | 대사/보이스 | Fish Audio (TypeCast 대체) | `fish_audio_tts` | `execution` + 목소리 승인 |
 | 컷 영상 | Ludyte | `create_session`/`send_message` | `execution` + 모델·길이 확정 |

@@ -129,7 +129,7 @@ cineforge deliver <project>                     # final/<project>.mp4 + .srt + d
 
 ## 사운드 디자인과 MCP
 
-S07은 `assets/sound_plan.json`을 씁니다. 큐마다 담당 MCP·도구·프롬프트·루프·AI 표시가 붙습니다: BGM·OST는 Suno(`generate_music`, `@yellowkode/suno-mcp`), 효과음·공간음은 ElevenLabs(`elevenlabs_sound_effect`), 대사는 Fish Audio(`fish_audio_tts`, TypeCast 대체)입니다. 이 파일은 생성 인계이며 음원 생성 자체는 아직 실행하지 않습니다.
+S07은 `assets/sound_plan.json`을 씁니다. 큐마다 담당 MCP·도구·프롬프트·루프·AI 표시가 붙습니다: BGM·OST는 **공식 Suno MCP**(`https://api.suno.com/mcp`, OAuth, 도구명은 연결 후 확정), 효과음·공간음은 ElevenLabs(`elevenlabs_sound_effect`), 대사는 Fish Audio(`fish_audio_tts`, TypeCast 대체)입니다. 이 파일은 생성 인계이며 음원 생성 자체는 아직 실행하지 않습니다.
 
 ```bash
 cineforge setup                                   # 네 서버 준비 상태 확인(다른 에이전트 설치 포함)
@@ -144,7 +144,7 @@ cineforge setup --set-key elevenlabs              # 숨김 입력
 cineforge setup --remove-key suno
 ```
 
-Suno는 `SUNO_API_KEY`(`sb_...` 또는 sunoapi.org 키)가 필요하다. 키는 호스트 환경변수 또는 `~/.config/cineforge/credentials.json`(0600)에만 저장하고 프로젝트·프롬프트·로그에 남기지 않습니다. 설치는 `--yes`와 서버별 실제 설치 명령(`--recipe`)이 모두 있어야 실행하며, 명령을 모르면 추측해서 만들지 않고 거부합니다. 다른 에이전트에 이미 설치된 MCP는 `--discover`/`--import-mcp`로 읽어 재사용하며, 외부 설정을 수정하거나 비밀 값을 복사하지 않고 환경변수 이름만 기록합니다. `setup`은 실행할 때마다 **자동 동기화**합니다 — 새 MCP 추가, 명령·URL 변경 갱신, 사라진 항목 제거, 충돌은 선택/대안으로 기록. 백그라운드 감시가 필요하면 `cineforge mcp-sync start`를 쓴다. 감시자는 외부 설정을 읽기만 하고 `~/.config/cineforge` 아래 캐시·상태·로그만 쓴다(비밀 값 복사 없음, PID 잠금, SIGTERM 종료). MCP 도구가 Pi/Codex 세션에 실제로 노출되는지는 호스트 설정이 결정합니다.
+Suno는 공식 원격 MCP로 **OAuth 로그인**이 필요하다(API 키 없음, Suno 크레딧 사용). Pi에서는 `/mcp login suno`(또는 `pi mcp login suno`)로 승인한다. 다른 키는 호스트 환경변수 또는 `~/.config/cineforge/credentials.json`(0600)에만 저장하고 프로젝트·프롬프트·로그에 남기지 않습니다. 설치는 `--yes`와 서버별 실제 설치 명령(`--recipe`)이 모두 있어야 실행하며, 명령을 모르면 추측해서 만들지 않고 거부합니다. 다른 에이전트에 이미 설치된 MCP는 `--discover`/`--import-mcp`로 읽어 재사용하며, 외부 설정을 수정하거나 비밀 값을 복사하지 않고 환경변수 이름만 기록합니다. `setup`은 실행할 때마다 **자동 동기화**합니다 — 새 MCP 추가, 명령·URL 변경 갱신, 사라진 항목 제거, 충돌은 선택/대안으로 기록. 백그라운드 감시가 필요하면 `cineforge mcp-sync start`를 쓴다. 감시자는 외부 설정을 읽기만 하고 `~/.config/cineforge` 아래 캐시·상태·로그만 쓴다(비밀 값 복사 없음, PID 잠금, SIGTERM 종료). MCP 도구가 Pi/Codex 세션에 실제로 노출되는지는 호스트 설정이 결정합니다.
 
 ## 이미지 자동 제작 (Linux)
 

@@ -1,4 +1,9 @@
-"""Sound design plan and MCP lane routing; no audio is generated here."""
+"""Sound design plan and MCP lane routing; no audio is generated here.
+
+Suno is the official remote MCP (https://api.suno.com/mcp, OAuth). Its tool
+names are resolved from the connected server, so the lane records the provider
+(`suno`) rather than guessing a tool name.
+"""
 from pathlib import Path
 import json
 import os
@@ -21,11 +26,11 @@ KEYS = {
     'suno': 'SUNO_API_KEY',
 }
 LANES = {
-    'BGM': ('suno', 'generate_music', True),
+    'BGM': ('suno', 'suno_mcp', True),
     'SFX': ('elevenlabs', 'elevenlabs_sound_effect', False),
     'AMBIENCE': ('elevenlabs', 'elevenlabs_sound_effect', True),
     'DIALOGUE': ('fish_audio', 'fish_audio_tts', False),
-    'OST': ('suno', 'generate_music', False),
+    'OST': ('suno', 'suno_mcp', False),
 }
 
 

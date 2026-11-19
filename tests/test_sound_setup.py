@@ -22,7 +22,7 @@ def cues():
 def test_plan_routes_each_cue_to_its_mcp_lane():
     rows = plan(cues(), mood='조용한 긴장', era='1999년 한국')
     lanes = {row.kind: (row.provider, row.tool, row.loop) for row in rows}
-    assert lanes['BGM'] == ('suno', 'generate_music', True)
+    assert lanes['BGM'] == ('suno', 'suno_mcp', True)
     assert lanes['SFX'] == ('elevenlabs', 'elevenlabs_sound_effect', False)
     assert lanes['AMBIENCE'][2] is True
     assert lanes['DIALOGUE'][0] == 'fish_audio'
