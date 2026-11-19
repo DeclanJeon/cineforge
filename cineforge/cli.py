@@ -196,6 +196,16 @@ def cmd_setup(args: argparse.Namespace) -> int:
             remove_key(args.remove_key)
             print(f"{args.remove_key} 키를 삭제했습니다.")
             return 0
+        if args.discover or args.import_mcp:
+            from cineforge.mcp_discovery import discover, import_config, matches
+
+            rows = discover()
+            if args.import_mcp:
+                target = import_config(rows)
+                print(json.dumps({"imported": str(target), "providers": sorted(matches(rows))}, ensure_ascii=False))
+                return 0
+            print(json.dumps({'servers': rows, 'matched': sorted(matches(rows))}, ensure_ascii=False, indent=2))
+            return 0
         if args.apply:
             recipes = {}
             for item in getattr(args, "recipe", None) or []:
@@ -208,7 +218,8 @@ def cmd_setup(args: argparse.Namespace) -> int:
         print(f"설정 실패: {exc}", file=sys.stderr)
         return 1
     for row in status():
-        print(f"{row['server']:<12} 명령 {'준비' if row['command_available'] else '없음':<3} "
+        host = f"외부설치({row['agent']})" if row['installed_elsewhere'] else ('명령' if row['command_available'] else '없음')
+        print(f"{row['server']:<12} {host:<16} "
               f"키 {'등록' if row['key_registered'] else '없음':<3} {row['purpose']}")
     print("설치: cineforge setup --apply suno --recipe 'suno=<설치 명령>' --yes")
     print("키 등록: cineforge setup --set-key <server>  (값은 숨김 입력)")
@@ -576,6 +587,8 @@ def build_parser() -> argparse.ArgumentParser:
     su.add_argument("--apply", nargs="+", metavar="SERVER", help="선택한 MCP 서버 설치 실행")
     su.add_argument("--yes", action="store_true", help="설치 실행 확인(없으면 거부)")
     su.add_argument("--recipe", action="append", metavar="SERVER=CMD", help="서버 설치 명령(반복)")
+    su.add_argument("--discover", action="store_true", help="다른 에이전트에 설치된 MCP 읽기")
+    su.add_argument("--import-mcp", action="store_true", help="발견한 MCP 항목을 CineForge 설정에 기록")
     su.add_argument("--host", choices=["codex", "claude", "pi"], default="codex")
     su.add_argument("--set-key", metavar="SERVER", help="키를 숨김 입력으로 등록")
     su.add_argument("--remove-key", metavar="SERVER")

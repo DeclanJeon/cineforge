@@ -135,12 +135,21 @@ def remove_key(provider: str, *, path: Path | None = None) -> Path:
 
 
 def status(*, path: Path | None = None) -> list[dict[str, object]]:
+    from .mcp_discovery import matches
+
     target = path or credentials_path()
     stored = json.loads(target.read_text(encoding='utf-8')) if target.exists() else {}
-    return [{'server': name, 'purpose': purpose, 'commands': commands,
-             'command_available': any(shutil.which(command) for command in commands),
-             'key_env': KEYS[name], 'key_registered': bool(stored.get(KEYS[name]) or os.environ.get(KEYS[name]))}
-            for name, (purpose, commands) in MCP_SERVERS.items()]
+    found = matches()
+    rows = []
+    for name, (purpose, commands) in MCP_SERVERS.items():
+        host = found.get(name)
+        rows.append({'server': name, 'purpose': purpose, 'commands': commands,
+                     'command_available': any(shutil.which(command) for command in commands),
+                     'installed_elsewhere': host is not None,
+                     'source': host['source'] if host else None,
+                     'agent': host['agent'] if host else None,
+                     'key_env': KEYS[name], 'key_registered': bool(stored.get(KEYS[name]) or os.environ.get(KEYS[name]))})
+    return rows
 
 
 def apply(selected: list[str], *, yes: bool, runner=None, recipes: dict[str, list[str]] | None = None) -> list[str]:
