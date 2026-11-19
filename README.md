@@ -134,13 +134,14 @@ S07은 `assets/sound_plan.json`을 씁니다. 큐마다 담당 MCP·도구·프�
 ```bash
 cineforge setup                                   # 네 서버 준비 상태 확인(다른 에이전트 설치 포함)
 cineforge setup --discover                        # Codex/Claude/Gemini/OpenCode MCP 읽기(읽기 전용)
-cineforge setup --import-mcp                      # 발견한 서버를 ~/.config/cineforge/mcp.json에 기록
+cineforge setup --import-mcp                      # 지금 즉시 기록(자동 동기화와 동일)
+cineforge setup --no-sync                         # 자동 갱신 없이 상태만 확인
 cineforge setup --apply suno --recipe "suno=npx -y <suno-mcp-package>" --yes
 cineforge setup --set-key elevenlabs              # 숨김 입력
 cineforge setup --remove-key suno
 ```
 
-키는 `~/.config/cineforge/credentials.json`(0600)에만 저장하고 프로젝트·프롬프트·로그에 남기지 않습니다. 설치는 `--yes`와 서버별 실제 설치 명령(`--recipe`)이 모두 있어야 실행하며, 명령을 모르면 추측해서 만들지 않고 거부합니다. 다른 에이전트에 이미 설치된 MCP는 `--discover`/`--import-mcp`로 읽어 재사용하며, 외부 설정을 수정하거나 비밀 값을 복사하지 않고 환경변수 이름만 기록합니다. MCP 도구가 Pi/Codex 세션에 실제로 노출되는지는 호스트 설정이 결정합니다.
+키는 `~/.config/cineforge/credentials.json`(0600)에만 저장하고 프로젝트·프롬프트·로그에 남기지 않습니다. 설치는 `--yes`와 서버별 실제 설치 명령(`--recipe`)이 모두 있어야 실행하며, 명령을 모르면 추측해서 만들지 않고 거부합니다. 다른 에이전트에 이미 설치된 MCP는 `--discover`/`--import-mcp`로 읽어 재사용하며, 외부 설정을 수정하거나 비밀 값을 복사하지 않고 환경변수 이름만 기록합니다. `setup`은 실행할 때마다 **자동 동기화**합니다 — 새 MCP 추가, 명령·URL 변경 갱신, 사라진 항목 제거, 충돌은 선택/대안으로 기록. 백그라운드 감시는 하지 않으므로 외부 설정을 바꾼 뒤에는 `setup`을 다시 실행하세요. MCP 도구가 Pi/Codex 세션에 실제로 노출되는지는 호스트 설정이 결정합니다.
 
 ## 이미지 자동 제작 (Linux)
 
