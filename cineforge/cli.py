@@ -310,6 +310,23 @@ def cmd_deliver(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_qa_playback(args: argparse.Namespace) -> int:
+    from cineforge.playback import submit
+
+    report = json.loads(Path(args.file).read_text(encoding="utf-8"))
+    path = submit(Path(args.project), report)
+    print(json.dumps({"record": str(path), "provenance": "reviewer_reported"}, ensure_ascii=False))
+    return 0
+
+
+def cmd_skills(args: argparse.Namespace) -> int:
+    from cineforge.skills import check
+
+    report = check(Path(args.root) if args.root else None)
+    print(json.dumps(report, ensure_ascii=False, indent=2))
+    return 0 if report["available"] else 1
+
+
 def cmd_gate(args: argparse.Namespace) -> int:
     from cineforge.gate import check
 
@@ -445,6 +462,15 @@ def build_parser() -> argparse.ArgumentParser:
     g.add_argument("project")
     g.add_argument("--json", action="store_true")
     g.set_defaults(func=cmd_gate)
+
+    qp = sub.add_parser("qa-playback", help="사람 재생 검수 기록(납품 해시 고정)")
+    qp.add_argument("project")
+    qp.add_argument("--file", required=True)
+    qp.set_defaults(func=cmd_qa_playback)
+
+    sk = sub.add_parser("skills", help="스킬팩 연결·핀 검사")
+    sk.add_argument("--root")
+    sk.set_defaults(func=cmd_skills)
 
     ex = sub.add_parser("execute", help="실행 봉투 생성(S08_audio/S08_video)")
     ex.add_argument("project")

@@ -106,6 +106,12 @@ cineforge deliver <project>                     # final/<project>.mp4 + .srt + d
 - `edit/proxy.json`에 `{"width":540,"height":960}`을 두면 프록시 해상도로 렌더한다. 검수는 실제 렌더 크기를 기준으로 한다.
 - 실제 provider 호출은 `execution` 승인과 키가 있어야 하며, 이 저장소의 테스트는 로컬 ffmpeg와 가짜 실행기만 쓴다.
 
+## 흡수한 검증 기능 (SceneWeaver)
+
+- `cineforge qa-playback <project> --file report.json`: 납품 파일 해시에 묶인 **사람 재생 검수 기록**. `reviewer_reported`로만 남고 게이트·승인을 바꾸지 않는다.
+- `cineforge skills`: 설치된 스킬팩의 실행 도구 8개를 찾아 해시를 확인한다. `deliver`는 이 핀을 `delivery.json.skills`에 기록한다.
+- 전체 대기·복구·영수증 규칙은 [제작 완결 설계](docs/superpowers/specs/2026-11-20-production-closure-design.md)를 따른다.
+
 ## 사운드 디자인과 MCP
 
 S07은 `assets/sound_plan.json`을 씁니다. 큐마다 담당 MCP·도구·프롬프트·루프·AI 표시가 붙습니다: BGM은 Suno(`suno_generate`), 효과음·공간음은 ElevenLabs(`elevenlabs_sound_effect`), 대사는 Fish Audio(`fish_audio_tts`, TypeCast 대체)입니다. 이 파일은 생성 인계이며 음원 생성 자체는 아직 실행하지 않습니다.

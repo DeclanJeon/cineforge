@@ -149,3 +149,12 @@
 | R8 최종 검수·납품 | checked | `tests/test_final_delivery.py` 2 passed |
 
 전체: `python -m pytest -q` → **107 passed, 2 skipped** (2026-11-20).
+
+## Phase 2 — SceneWeaver 흡수 (2/2)
+
+| 단위 | 상태 | 증거 |
+|---|---|---|
+| T13 사람 재생 검수 기록 | complete | `tests/test_absorb.py` 4 passed; `qa/playback-<hash>.json`, 납품 해시 고정, provenance `reviewer_reported` |
+| T14 스킬팩 연결·핀 | complete | `cineforge skills` available, `delivery.json.skills`에 8개 도구 해시 기록 |
+
+흡수 후 SceneWeaver는 `01_Persnal_Work/_archive/sceneweaver-local-v1`으로 보관. 업스트림 프로젝트(R24/R31) 실행 기능은 흡수하지 않고 archive 문서에 남겼다.

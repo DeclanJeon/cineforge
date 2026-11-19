@@ -10,6 +10,7 @@ from typing import Any
 from .edit_plan import build as build_plan
 from .final_qa import inspect
 from .gate import check as gate_check
+from .skills import pins as skill_pins
 from .subtitles import to_srt
 
 
@@ -52,7 +53,7 @@ def deliver(project: Path, *, video: Path | None = None, burn: bool = False) -> 
               'width': int(plan['width']), 'height': int(plan['height']), 'fps': int(plan['fps']),
               'subtitles': str(final_srt.relative_to(project)) if final_srt.is_file() else None,
               'burned_in': burn, 'gate': gate.as_dict(), 'final_qa': report['status'],
-              'ai_disclosure': True}
+              'ai_disclosure': True, 'skills': skill_pins()}
     delivery = project / 'final/delivery.json'
     delivery.write_text(json.dumps(bundle, ensure_ascii=False, indent=2), encoding='utf-8')
     return bundle
