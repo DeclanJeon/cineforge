@@ -109,7 +109,7 @@ cineforge deliver <project>                     # final/<project>.mp4 + .srt + d
 ## 흡수한 검증 기능 (SceneWeaver)
 
 - `cineforge qa-playback <project> --file report.json`: 납품 파일 해시에 묶인 **사람 재생 검수 기록**. `reviewer_reported`로만 남고 게이트·승인을 바꾸지 않는다.
-- `cineforge skills`: 설치된 스킬팩의 실행 도구 8개를 찾아 해시를 확인한다. `deliver`는 이 핀을 `delivery.json.skills`에 기록한다.
+- `cineforge skills`: 설치된 스킬팩의 실행 도구 8개를 찾아 해시를 확인한다. `deliver`는 이 핀을 `delivery.json.skills`에 기록한다. **스킬팩을 제거하면 이 핀이 비므로, CineForge는 `contents-production-skills` 설치를 전제로 한다** (경로 재정의: `CINEFORGE_SKILL_PACK`).
 - 전체 대기·복구·영수증 규칙은 [제작 완결 설계](docs/superpowers/specs/2026-11-20-production-closure-design.md)를 따른다.
 
 ## 사운드 디자인과 MCP
