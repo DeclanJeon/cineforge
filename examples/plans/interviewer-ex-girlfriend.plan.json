@@ -1,0 +1,513 @@
+{
+  "version": "1.0",
+  "generated_by": "host-agent(example)",
+  "title": "《면접관이 제 전 여친입니다》",
+  "logline": "최종 면접장에서 면접관으로 나타난 전 여자친구. 그런데 그녀는 이 회사 직원이 아니었다.",
+  "meta": {
+    "format": "숏드라마",
+    "genres": [
+      "오피스 코미디",
+      "로맨틱 코미디",
+      "상황극"
+    ],
+    "runtime_s": 60,
+    "scene_count": 5,
+    "cut_count": 20,
+    "aspect": "9:16 세로",
+    "style": "한국 영화풍 시네마틱 실사",
+    "narrative": "결말 선공개형",
+    "strategy": "결말 선공개 → 원인 역추적 → 2차 반전"
+  },
+  "synopsis": "취업이 간절한 30대 남자 김도현. 최종 면접을 보러 간 회사에서 3년 전 자신을 차버린 전 여자친구 한지윤을 만난다. 그런데 그녀는 오늘 면접관이다. 면접이 시작되자 직무와 무관한 질문이 쏟아지고, 도현은 이 면접이 복수극이라고 확신한다. 하지만 마지막 순간, 그녀가 이 회사에 다니지도 않는다는 진실이 밝혀진다.",
+  "hook": {
+    "start": 0,
+    "end": 4,
+    "line": "합격입니다. 대신 저랑 다시 사귀세요.",
+    "visual": "극도로 진지한 표정의 여성 면접관. 충격받은 남성 지원자. 1초 정적 후 남자의 손에서 펜이 떨어진다.",
+    "caption": "면접 보러 왔는데 전 여친이 면접관이다.",
+    "questions": [
+      "왜 전 여자친구가 면접관이지?",
+      "정말 재결합하면 합격하는 걸까?",
+      "남자는 결국 어떤 선택을 할까?"
+    ]
+  },
+  "timeline": [
+    {
+      "start": 0,
+      "end": 4,
+      "label": "충격적인 결말",
+      "scene_no": 1,
+      "summary": "재결합 조건을 내건 면접관"
+    },
+    {
+      "start": 4,
+      "end": 12,
+      "label": "30분 전",
+      "scene_no": 2,
+      "summary": "평범한 면접인 줄 알았던 남자"
+    },
+    {
+      "start": 12,
+      "end": 30,
+      "label": "수상한 압박 면접",
+      "scene_no": 3,
+      "summary": "직무 질문처럼 포장된 연애 질문"
+    },
+    {
+      "start": 30,
+      "end": 45,
+      "label": "면접 붕괴",
+      "scene_no": 4,
+      "summary": "남자의 황당한 자기변호와 면접관의 반격"
+    },
+    {
+      "start": 45,
+      "end": 60,
+      "label": "진짜 반전",
+      "scene_no": 5,
+      "summary": "면접관의 진짜 정체 공개"
+    }
+  ],
+  "scenes": [
+    {
+      "no": 1,
+      "title": "충격적인 결말",
+      "start": 0,
+      "end": 4,
+      "location": "면접실",
+      "summary": "재결합 조건을 내건 면접관",
+      "direction_note": "85mm 인물 렌즈 느낌, 얕은 심도, 정적인 구도로 긴장감 극대화",
+      "cuts": [
+        {
+          "no": 1,
+          "duration": 1.5,
+          "shot": "익스트림 클로즈업",
+          "visual": "여성 얼굴 익스트림 클로즈업. 정면 응시",
+          "sound": "대사",
+          "dialogue": "합격입니다.",
+          "speaker": "CH02",
+          "characters": [
+            "CH02"
+          ],
+          "state": {
+            "start": {
+              "holding": {
+                "CH01": {
+                  "right": "펜"
+                }
+              }
+            }
+          }
+        },
+        {
+          "no": 2,
+          "duration": 1.5,
+          "shot": "리버스 클로즈업",
+          "visual": "남성 얼굴로 빠른 리버스 컷",
+          "sound": "대사",
+          "dialogue": "대신 저랑 다시 사귀세요.",
+          "speaker": "CH02",
+          "characters": [
+            "CH01",
+            "CH02"
+          ]
+        },
+        {
+          "no": 3,
+          "duration": 1,
+          "shot": "인서트",
+          "visual": "펜이 바닥에 떨어지는 클로즈업",
+          "sound": "펜 낙하음 + 음악 정지",
+          "characters": [
+            "CH01"
+          ],
+          "state": {
+            "end": {
+              "holding": {
+                "CH01": {
+                  "right": null
+                }
+              }
+            },
+            "changes": [
+              "도현이 펜을 떨어뜨림"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "no": 2,
+      "title": "30분 전",
+      "start": 4,
+      "end": 12,
+      "location": "회사 복도",
+      "summary": "평범한 면접인 줄 알았던 남자",
+      "direction_note": "플래시 프레임 + '30분 전' 타이틀. 복도 장면은 짧은 트래킹샷으로 시작",
+      "cuts": [
+        {
+          "no": 4,
+          "duration": 2,
+          "shot": "와이드샷",
+          "visual": "회사 복도 와이드샷, 남성이 넥타이를 고침",
+          "sound": "경쾌한 BGM",
+          "characters": [
+            "CH01"
+          ],
+          "camera": "트래킹",
+          "state": {
+            "start": {
+              "holding": {
+                "CH01": {
+                  "left": "이력서"
+                }
+              }
+            }
+          }
+        },
+        {
+          "no": 5,
+          "duration": 2,
+          "shot": "미디엄샷",
+          "visual": "남성이 이력서를 확인하며 심호흡",
+          "sound": "대사",
+          "dialogue": "이번엔 진짜 붙자.",
+          "speaker": "CH01",
+          "characters": [
+            "CH01"
+          ]
+        },
+        {
+          "no": 6,
+          "duration": 2,
+          "shot": "미디엄샷",
+          "visual": "문 열고 입장, 면접관을 보는 순간 멈춤",
+          "sound": "레코드 스크래치 효과음",
+          "characters": [
+            "CH01"
+          ],
+          "state": {
+            "end": {
+              "holding": {
+                "CH01": {
+                  "left": null
+                }
+              }
+            },
+            "changes": [
+              "이력서를 가방에 넣고 문을 엶"
+            ]
+          }
+        },
+        {
+          "no": 7,
+          "duration": 2,
+          "shot": "클로즈업",
+          "visual": "전 여자친구 얼굴 클로즈업",
+          "sound": "대사",
+          "dialogue": "오랜만이네?",
+          "speaker": "CH02",
+          "characters": [
+            "CH02"
+          ]
+        }
+      ]
+    },
+    {
+      "no": 3,
+      "title": "수상한 압박 면접",
+      "start": 12,
+      "end": 30,
+      "location": "면접실",
+      "summary": "직무 질문처럼 포장된 연애 질문",
+      "direction_note": "질문은 진지한 기업 면접 톤, 답변은 점점 비논리적으로 만들어 웃음을 증폭",
+      "cuts": [
+        {
+          "no": 8,
+          "duration": 3,
+          "shot": "투샷",
+          "visual": "투샷, 어색한 정적",
+          "sound": "대사",
+          "dialogue": "실수를 인정하는 편인가요?",
+          "speaker": "CH02",
+          "characters": [
+            "CH01",
+            "CH02"
+          ],
+          "state": {
+            "start": {
+              "holding": {
+                "CH02": {
+                  "right": "서류"
+                }
+              }
+            }
+          }
+        },
+        {
+          "no": 9,
+          "duration": 3,
+          "shot": "클로즈업",
+          "visual": "남성 클로즈업, 식은땀",
+          "sound": "대사",
+          "dialogue": "네, 적극적으로 개선합니다.",
+          "speaker": "CH01",
+          "characters": [
+            "CH01"
+          ]
+        },
+        {
+          "no": 10,
+          "duration": 3,
+          "shot": "클로즈업",
+          "visual": "여성 무표정 클로즈업",
+          "sound": "대사",
+          "dialogue": "읽씹도 실수인가요?",
+          "speaker": "CH02",
+          "characters": [
+            "CH02"
+          ]
+        },
+        {
+          "no": 11,
+          "duration": 3,
+          "shot": "클로즈업",
+          "visual": "남성 급격한 줌인",
+          "sound": "대사",
+          "dialogue": "그건 통신 장애였는데요.",
+          "speaker": "CH01",
+          "characters": [
+            "CH01"
+          ],
+          "camera": "급격한 줌인"
+        },
+        {
+          "no": 12,
+          "duration": 3,
+          "shot": "미디엄샷",
+          "visual": "여성 서류를 넘김",
+          "sound": "대사",
+          "dialogue": "그럼 환승 이직은요?",
+          "speaker": "CH02",
+          "characters": [
+            "CH02"
+          ]
+        },
+        {
+          "no": 13,
+          "duration": 3,
+          "shot": "클로즈업",
+          "visual": "남성 당황, 입술을 깨묾",
+          "sound": "대사",
+          "dialogue": "그건… 업계 관행이…",
+          "speaker": "CH01",
+          "characters": [
+            "CH01"
+          ]
+        }
+      ]
+    },
+    {
+      "no": 4,
+      "title": "면접 붕괴",
+      "start": 30,
+      "end": 45,
+      "location": "면접실",
+      "summary": "남자의 황당한 자기변호와 면접관의 반격",
+      "direction_note": "컷 16은 갑작스러운 핸드헬드로 리듬을 깨고, 컷 17은 일부러 길게 유지해 민망함을 웃음으로",
+      "cuts": [
+        {
+          "no": 14,
+          "duration": 3,
+          "shot": "미디엄샷",
+          "visual": "여성이 서류를 탁 내려놓음",
+          "sound": "서류 타격음 + 대사",
+          "dialogue": "마지막 질문입니다.",
+          "speaker": "CH02",
+          "characters": [
+            "CH02"
+          ],
+          "state": {
+            "start": {
+              "holding": {
+                "CH02": {
+                  "right": "서류"
+                }
+              }
+            },
+            "end": {
+              "holding": {
+                "CH02": {
+                  "right": null
+                }
+              }
+            },
+            "changes": [
+              "서류를 책상에 내려놓음"
+            ]
+          }
+        },
+        {
+          "no": 15,
+          "duration": 3,
+          "shot": "클로즈업",
+          "visual": "남성 긴장, 느린 푸시인",
+          "sound": "대사",
+          "dialogue": "재입사 가능합니까?",
+          "speaker": "CH02",
+          "characters": [
+            "CH01",
+            "CH02"
+          ],
+          "camera": "슬로 푸시인"
+        },
+        {
+          "no": 16,
+          "duration": 4,
+          "shot": "미디엄샷",
+          "visual": "남성 벌떡 일어남",
+          "sound": "대사",
+          "dialogue": "그때 제가 잘못했습니다!",
+          "speaker": "CH01",
+          "characters": [
+            "CH01"
+          ],
+          "state": {
+            "changes": [
+              "도현이 일어섬"
+            ]
+          },
+          "camera": "핸드헬드"
+        },
+        {
+          "no": 17,
+          "duration": 5,
+          "shot": "클로즈업",
+          "visual": "여성 웃음 참는 얼굴 → 남성 클로즈업",
+          "sound": "BGM 정지, 어색한 정적",
+          "characters": [
+            "CH01",
+            "CH02"
+          ]
+        }
+      ]
+    },
+    {
+      "no": 5,
+      "title": "진짜 반전",
+      "start": 45,
+      "end": 60,
+      "location": "면접실",
+      "summary": "면접관의 진짜 정체 공개",
+      "direction_note": "엔딩 직전 빠른 줌과 코믹한 타격음. 마지막 1초 자막: '취업도 연애도 망했다.'",
+      "cuts": [
+        {
+          "no": 18,
+          "duration": 4,
+          "shot": "클로즈업",
+          "visual": "여성이 웃으며 첫 장면 대사를 반복",
+          "sound": "대사",
+          "dialogue": "합격입니다. 대신 저랑 다시 사귀세요.",
+          "speaker": "CH02",
+          "characters": [
+            "CH02"
+          ]
+        },
+        {
+          "no": 19,
+          "duration": 6,
+          "shot": "와이드샷",
+          "visual": "진짜 인사담당자가 문을 열고 들어옴",
+          "sound": "문 여는 소리 + 대사",
+          "dialogue": "지윤아, 내 면접실에서 뭐 해?",
+          "speaker": "CH03",
+          "characters": [
+            "CH01",
+            "CH02",
+            "CH03"
+          ]
+        },
+        {
+          "no": 20,
+          "duration": 5,
+          "shot": "클로즈업",
+          "visual": "남성 멍한 표정 → 여성 미소 → 프리즈 프레임",
+          "sound": "코믹 타격음 + 대사",
+          "dialogue": "잠깐, 그럼 제 면접은요?",
+          "speaker": "CH01",
+          "characters": [
+            "CH01"
+          ],
+          "camera": "빠른 줌"
+        }
+      ]
+    }
+  ],
+  "characters": [
+    {
+      "id": "CH01",
+      "name": "김도현",
+      "age": 32,
+      "role": "주연 · 취업 준비생",
+      "persona": "평소에는 자신감 넘치지만 전 여자친구 앞에서는 논리력이 사라진다.",
+      "appearance": "짧은 흑발, 둥근 안경, 긴장하면 귀가 빨개짐",
+      "wardrobe": "네이비 정장, 하늘색 셔츠, 줄무늬 넥타이",
+      "voice": "또렷하지만 긴장하면 빨라지는 중음"
+    },
+    {
+      "id": "CH02",
+      "name": "한지윤",
+      "age": 30,
+      "role": "주연 · 전 여자친구",
+      "persona": "차분한 표정으로 상대를 당황시키는 데 능숙하다. 실제 면접관은 아니다.",
+      "appearance": "단발 흑발, 날카로운 눈매",
+      "wardrobe": "아이보리 블라우스, 베이지 슬랙스",
+      "voice": "낮고 차분한 톤"
+    },
+    {
+      "id": "CH03",
+      "name": "인사담당자",
+      "age": 35,
+      "role": "조연",
+      "persona": "지윤의 친구. 잠시 자리를 비웠다가 돌아온다.",
+      "appearance": "포니테일, 사원증",
+      "wardrobe": "회색 재킷, 사원증 목걸이",
+      "voice": "밝은 톤"
+    }
+  ],
+  "props": [
+    "펜",
+    "이력서",
+    "서류",
+    "사원증"
+  ],
+  "foreshadowing": [
+    "지윤이 사원증을 걸고 있지 않음"
+  ],
+  "production_spec": {
+    "aspect": "9:16, 1080×1920 이상",
+    "fps": "24fps 시네마틱 기반",
+    "camera": "대화 35mm·50mm 느낌, 표정 반응 85mm 느낌",
+    "lighting": "자연스러운 사무실 광원 + 부드러운 인물 보조광",
+    "edit": "질문과 답변은 빠른 리버스 컷, 민망한 순간은 의도적으로 홀드",
+    "camera_movement": "긴장할 때 슬로 푸시인, 코미디 폭발 시 급격한 줌",
+    "bgm": "초반 경쾌한 오피스 코미디 → 긴장감 있는 리듬 → 반전 시 정지",
+    "sfx": "레코드 스크래치, 펜 낙하음, 서류 타격음, 코믹 임팩트",
+    "grading": "자연스러운 피부색, 약간 차가운 오피스 톤, 중간 대비",
+    "subtitles": "주요 대사 중심으로 큰 글자, 강조할 단어만 색상 변화"
+  },
+  "preflight_checks": [
+    {
+      "id": "U01",
+      "item": "반전의 개연성",
+      "status": "review",
+      "detail": "지윤이 인사담당자의 친구이고, 담당자가 잠시 자리를 비운 사이 면접실에 들어왔다는 설정을 씬2~3에 단서로 심기"
+    },
+    {
+      "id": "U02",
+      "item": "대사 밀도",
+      "status": "review",
+      "detail": "60초 20컷에 대사가 많음 — 애니매틱에서 발화 속도 측정 후 2~4컷 조정"
+    }
+  ]
+}
