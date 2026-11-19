@@ -3,7 +3,8 @@ import json
 import pytest
 
 from cineforge.providers.base import AgentInputRequired, ProviderError, Question, parse_jev_answers
-from cineforge.providers.remote import JevOpenRouterDecisionProvider, JevTypeSafeDecisionProvider, OpenRouterGenerationProvider
+from cineforge.providers.remote import (DEFAULT_GEN_MODEL, OPENROUTER_DECISIONS_URL, JevOpenRouterDecisionProvider,
+                                        JevTypeSafeDecisionProvider, OpenRouterGenerationProvider)
 from cineforge.providers.router import build_router
 
 FAKE_KEY = "sk-test-not-real-0000"
@@ -49,21 +50,58 @@ def test_openrouter_jev_falls_back_on_bad_shape(tmp_path):
     assert FAKE_KEY not in json.dumps(router.log)
 
 
-def test_openrouter_jev_uses_slug():
+def test_openrouter_jev_uses_decisions_api():
     seen = {}
 
     def transport(url, headers, body, timeout):
-        seen.update(body=body)
-        return {"choices": [{"message": {"content": json.dumps({"answers": {"pick": {"choice": "a"}}})}}]}
+        seen.update(url=url, body=body)
+        # 2026-11-19 실호출 응답 형태(값만 축약)
+        return {"model": "typesafe/jev-1.14-20261014", "provider": "TypeSafe", "id": "gen-dec-x",
+                "answers": {"pick": {"type": "choice", "choice": "a", "probabilities": {"a": 1, "b": 0}, "confidence": 1}},
+                "usage": {"input_tokens": 452, "output_tokens": 78, "cost": 1.8984e-05}}
 
     p = JevOpenRouterDecisionProvider(env={"OPENROUTER_API_KEY": FAKE_KEY}, transport=transport)
     assert p.ask({}, [QS[0]])["pick"].value == "a"
+    assert seen["url"] == OPENROUTER_DECISIONS_URL == "https://openrouter.ai/api/alpha/decisions"
     assert seen["body"]["model"] == "typesafe/jev-1.14"
+    assert set(seen["body"]) == {"model", "state", "questions"}
+    assert seen["body"]["questions"]["pick"] == {"type": "choice", "instructions": "어느 쪽?", "criteria": {"a": "A", "b": "B"}}
+    assert p.last_usage["cost"] == pytest.approx(1.8984e-05)
 
 
-def test_generation_requires_explicit_model():
-    assert not OpenRouterGenerationProvider(env={"OPENROUTER_API_KEY": FAKE_KEY}).available()
-    assert OpenRouterGenerationProvider(env={"OPENROUTER_API_KEY": FAKE_KEY, "CINEFORGE_GEN_MODEL": "some/model"}).available()
+def test_score_continuous_value_maps_to_level():
+    # 실제 Jev는 score를 0..N-1 연속값 + 버킷 확률로 준다
+    raw = {"answers": {"q": {"type": "score", "score": 1.71, "probabilities": {"0": 0.05, "1": 0.2, "2": 0.75}}}}
+    assert parse_jev_answers(raw, [QS[1]], "x")["q"].value == "90"
+    assert parse_jev_answers({"answers": {"q": {"score": 0.6}}}, [QS[1]], "x")["q"].value == "50"
+    with pytest.raises(ProviderError):
+        parse_jev_answers({"answers": {"q": {"score": 7.2}}}, [QS[1]], "x")
+
+
+def test_refusal_is_not_an_answer():
+    with pytest.raises(ProviderError):
+        parse_jev_answers({"answers": {"has": {"type": "refusal"}}}, [QS[2]], "x")
+
+
+def test_generation_default_model_and_override():
+    p = OpenRouterGenerationProvider(env={"OPENROUTER_API_KEY": FAKE_KEY})
+    assert p.available() and p.model == DEFAULT_GEN_MODEL == "openai/gpt-6.1-terra"
+    assert OpenRouterGenerationProvider(env={"OPENROUTER_API_KEY": FAKE_KEY, "CINEFORGE_GEN_MODEL": "some/model"}).model == "some/model"
+    assert not OpenRouterGenerationProvider(env={"OPENROUTER_API_KEY": FAKE_KEY, "CINEFORGE_GEN_MODEL": "off"}).available()
+    assert not OpenRouterGenerationProvider(env={}).available()  # 키 없으면 절대 호출 안 함
+
+
+def test_generation_request_shape():
+    seen = {}
+
+    def transport(url, headers, body, timeout):
+        seen.update(url=url, body=body)
+        return {"choices": [{"message": {"content": "{\"title\": \"면접관이 제 전 여친입니다\"}"}}], "usage": {"cost": 0.001}}
+
+    p = OpenRouterGenerationProvider(env={"OPENROUTER_API_KEY": FAKE_KEY}, transport=transport)
+    assert p.generate("title", {"x": 1})["title"].startswith("면접관")
+    assert seen["url"].endswith("/api/v1/chat/completions") and seen["body"]["model"] == DEFAULT_GEN_MODEL
+    assert p.last_usage == {"cost": 0.001}
 
 
 def test_host_agent_roundtrip(tmp_path):

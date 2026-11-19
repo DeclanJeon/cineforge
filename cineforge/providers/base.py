@@ -86,6 +86,27 @@ class GenerationProvider:
         raise NotImplementedError  # pragma: no cover
 
 
+def _score_to_level(q: Question, value: Any, probabilities: Any) -> Any:
+    """Score 답을 등급 문자열로 바꾼다.
+
+    OpenRouter Decisions/TypeSafe는 score를 0..N-1 사이 연속값(예: 1.71)과 버킷별 확률
+    {"0": .05, "1": .2, "2": .75}로 돌려준다. 확률이 있으면 최빈 버킷, 없으면 반올림한 인덱스를 쓴다.
+    """
+    levels = q.criteria
+    if isinstance(probabilities, dict) and probabilities:
+        try:
+            idx = int(max(probabilities, key=lambda k: float(probabilities[k])))
+        except (TypeError, ValueError):
+            idx = None
+        if idx is not None and 0 <= idx < len(levels):
+            return levels[idx]
+    if isinstance(value, (int, float)) and not isinstance(value, bool):
+        idx = int(round(float(value)))
+        if 0 <= idx < len(levels):
+            return levels[idx]
+    raise ProviderError(f"질문 {q.id}: 등급 밖의 답 {value!r}")
+
+
 def parse_jev_answers(raw: dict[str, Any], questions: list[Question], provider: str) -> dict[str, Answer]:
     """TypeSafe System One 응답(answers 맵)을 Answer로 변환. 형태가 다르면 ProviderError."""
     answers = raw.get("answers", raw)
@@ -96,6 +117,8 @@ def parse_jev_answers(raw: dict[str, Any], questions: list[Question], provider: 
         entry = answers.get(q.id)
         if not isinstance(entry, dict):
             raise ProviderError(f"질문 {q.id}의 응답이 없습니다")
+        if entry.get("type") == "refusal":  # 거부는 '아니오'가 아니라 '답 없음' → 폴백(fail closed)
+            raise ProviderError(f"질문 {q.id}: 공급자가 답을 거부했습니다")
         if q.type == "noul":
             value: Any = float(entry.get("noul", entry.get("value", 0.0)))
         elif q.type == "choice":
@@ -105,10 +128,6 @@ def parse_jev_answers(raw: dict[str, Any], questions: list[Question], provider: 
         else:
             value = entry.get("score", entry.get("value"))
             if isinstance(q.criteria, list) and value not in q.criteria:
-                # 숫자 인덱스로 돌아오는 경우
-                if isinstance(value, int) and 0 <= value < len(q.criteria):
-                    value = q.criteria[value]
-                else:
-                    raise ProviderError(f"질문 {q.id}: 등급 밖의 답 {value!r}")
+                value = _score_to_level(q, value, entry.get("probabilities"))
         result[q.id] = Answer(q.id, q.type, value, entry.get("confidence"), provider, entry.get("probabilities"))
     return result
