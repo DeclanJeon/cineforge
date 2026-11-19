@@ -77,4 +77,12 @@ def test_action_qa_finds_real_defects():
                   visual='배우가 실제로 계단에서 굴러 떨어진다')
     issues = validate(_ssots([impact, silent_hit, teleport, danger]))
     rules = {issue['rule'] for issue in issues}
-    assert {'AQ01', 'AQ03', 'AQ04', 'AQ06'} <= rules
+    assert {'AQ01', 'AQ03', 'AQ04', 'AQ06', 'AQ07'} <= rules
+    first_hit = validate(_ssots([_cut('S01C01', 0.4, impact=True, sound='타격음', hit_cue='S01C01')]))
+    assert 'AQ05' in {issue['rule'] for issue in first_hit}
+
+
+def test_action_qa_ignores_a_clean_sequence():
+    setup = _cut('S01C01', 1.6, sound='앰비언스')
+    hit = _cut('S01C02', 0.4, impact=True, sound='타격음', hit_cue='S01C02', state_changes=['자세'])
+    assert validate(_ssots([setup, hit])) == []

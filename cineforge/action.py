@@ -49,10 +49,16 @@ def validate(ssots: dict[str, dict[str, Any]]) -> list[dict[str, Any]]:
     sounds = {cue.get('cut_id') for cue in ssots['audio']['data']['cues'] if cue['type'] == 'SFX'}
     issues: list[dict[str, Any]] = []
     seen_impact = False
+    previous: dict[str, Any] | None = None
     for cut in cuts:
         if not cut.get('impact'):
+            previous = cut
             continue
         seen_impact = True
+        if previous is None or previous.get('scene_no') not in (None, cut.get('scene_no')):
+            issues.append({'rule': 'AQ05', 'severity': 'warn', 'target': cut['cut_id'],
+                           'message': '타격 앞에 준비 컷이 없음 — 접촉 전 거리·자세를 먼저 보여줘야 함'})
+        previous = cut
         if float(cut['duration']) > 0.8:
             issues.append({'rule': 'AQ01', 'severity': 'error', 'target': cut['cut_id'],
                            'message': f"타격 컷 {cut['duration']}s — 0.8s 이하로 쪼개야 타격이 읽힘"})

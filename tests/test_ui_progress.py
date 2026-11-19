@@ -71,3 +71,12 @@ def test_human_status_prints_banner_and_panel(tmp_path, capsys, monkeypatch):
     out = capsys.readouterr().out
     assert 'CINEFORGE' in out and '진행률' in out
     assert not re.search(r'\x1b\[', out)
+
+
+def test_missing_project_fails_without_traceback(tmp_path, capsys):
+    assert main(['status', str(tmp_path / 'nope'), '--json']) == 1
+    captured = capsys.readouterr()
+    assert '오류' in captured.err and 'Traceback' not in captured.err
+    assert main(['run', str(tmp_path / 'nope')]) == 1
+    captured = capsys.readouterr()
+    assert '프로젝트' in captured.err and 'Traceback' not in captured.err

@@ -85,18 +85,39 @@ flowchart LR
 
 OST는 "노래 한 곡"이 아니라 **드라마 주제의 회수 장치**입니다. 그래서 `music_themes`에 주제가와 언더스코어를 분리해 두고, 큐에는 `role`·`vocal`을 기록합니다. BGM을 OST로, OST를 BGM으로 바꿔 부르지 않습니다.
 
+## 생성 이후 — 검수된 납품까지
+
+S07 이후를 CLI 한 번씩 이어 붙인다. 각 단계는 파일로 남고, 실패는 다음 단계로 넘어가지 않는다.
+
+```bash
+cineforge execute <project> --stage S08_audio   # OST/BGM/SFX/대사 job 봉투
+cineforge results <project> --stage S08_audio --file results.json
+cineforge execute <project> --stage S08_video   # 컷별 영상 job 봉투
+cineforge edit <project>                        # 결정적 편집 계획
+cineforge render <project>                      # ffmpeg 조립 + 음량 정규화
+cineforge verify <project> --all                # 사람 확인 후 verified 승격
+cineforge gate <project>                        # verified 게이트
+cineforge qa-final <project>                    # 해시·길이·스트림·음량·자막 검수
+cineforge deliver <project>                     # final/<project>.mp4 + .srt + delivery.json
+```
+
+- 영수증은 입력·출력 SHA-256을 남기고, 불명 작업은 자동 재시도하지 않는다.
+- `deliver`는 게이트와 최종 검수를 모두 통과할 때만 파일을 만든다. 하나라도 실패하면 기존 납품을 보존한다.
+- `edit/proxy.json`에 `{"width":540,"height":960}`을 두면 프록시 해상도로 렌더한다. 검수는 실제 렌더 크기를 기준으로 한다.
+- 실제 provider 호출은 `execution` 승인과 키가 있어야 하며, 이 저장소의 테스트는 로컬 ffmpeg와 가짜 실행기만 쓴다.
+
 ## 사운드 디자인과 MCP
 
 S07은 `assets/sound_plan.json`을 씁니다. 큐마다 담당 MCP·도구·프롬프트·루프·AI 표시가 붙습니다: BGM은 Suno(`suno_generate`), 효과음·공간음은 ElevenLabs(`elevenlabs_sound_effect`), 대사는 Fish Audio(`fish_audio_tts`, TypeCast 대체)입니다. 이 파일은 생성 인계이며 음원 생성 자체는 아직 실행하지 않습니다.
 
 ```bash
 cineforge setup                                   # 네 서버 준비 상태 확인
-cineforge setup --apply fish_audio typecast elevenlabs suno --yes
+cineforge setup --apply suno --recipe "suno=npx -y <suno-mcp-package>" --yes
 cineforge setup --set-key elevenlabs              # 숨김 입력
 cineforge setup --remove-key suno
 ```
 
-키는 `~/.config/cineforge/credentials.json`(0600)에만 저장하고 프로젝트·프롬프트·로그에 남기지 않습니다. 설치는 `--yes` 없이는 거부합니다. MCP 도구가 Pi/Codex 세션에 실제로 노출되는지는 호스트 설정이 결정합니다.
+키는 `~/.config/cineforge/credentials.json`(0600)에만 저장하고 프로젝트·프롬프트·로그에 남기지 않습니다. 설치는 `--yes`와 서버별 실제 설치 명령(`--recipe`)이 모두 있어야 실행하며, 명령을 모르면 추측해서 만들지 않고 거부합니다. MCP 도구가 Pi/Codex 세션에 실제로 노출되는지는 호스트 설정이 결정합니다.
 
 ## 이미지 자동 제작 (Linux)
 

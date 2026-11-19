@@ -64,16 +64,18 @@ def test_setup_lists_every_required_mcp_and_refuses_unconfirmed_install():
         apply(['nope'], yes=True)
 
 
-def test_setup_installs_only_selected_servers_when_confirmed(tmp_path):
+def test_setup_runs_only_declared_recipes(tmp_path):
     calls = []
 
     def runner(command):
         calls.append(command)
 
-    done = apply(['suno', 'elevenlabs'], yes=True, runner=runner)
+    with pytest.raises(SetupError, match='install_recipe_unknown'):
+        apply(['suno'], yes=True, runner=runner)
+    done = apply(['suno', 'elevenlabs'], yes=True, runner=runner,
+                 recipes={'suno': ['mcp', 'install', 'suno'], 'elevenlabs': ['mcp', 'install', 'elevenlabs']})
     assert done == ['suno', 'elevenlabs']
-    assert any('suno' in ' '.join(command) for command in calls)
-    assert not any('fish_audio' in ' '.join(command) for command in calls)
+    assert calls == [['mcp', 'install', 'suno'], ['mcp', 'install', 'elevenlabs']]
 
 
 def test_cli_set_key_uses_hidden_input_and_never_prints_it(tmp_path, monkeypatch, capsys):

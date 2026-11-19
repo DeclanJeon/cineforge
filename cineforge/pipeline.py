@@ -28,7 +28,7 @@ IMPACT_TO_STAGE = {"plan": "S03_plan", "story": "S04_story", "concept": "S04_sto
                    "audio": "S07_assets", "assets/image_prompts": "S07_assets", "assets/video_prompts": "S07_assets",
                    "assets/frames": "S07_assets", "assets/sound_cue_sheet": "S07_assets"}
 DEFAULT_AUTHORITY = {"accept_plan": False, "accept_preproduction": False, "execution": False, "edit": False, "publish": False,
-                     "image_limit": None, "spend_ceiling": None, "granted_by": "user", "granted_at": None, "notes": []}
+                     "image_limit": None, "providers": None, "spend_ceiling": None, "granted_by": "user", "granted_at": None, "notes": []}
 
 
 def slugify(text: str) -> str:
@@ -433,6 +433,10 @@ class Project:
             if limit is None and "nonstop" in self.authority().get("notes", []) and not self.authority().get("execution"):
                 self._handoff(sid, extra)
                 self.set_stage(prog, sid, "blocked", f"이미지 작업 {len(rows)}개 계획. 실행 범위 상한: cineforge run <project> --image-limit N (Codex Imagen 정지 이미지는 유료 견적 대상 아님); 영상 execution 권한은 별도")
+                return False
+            if limit is not None and len(rows) > limit:
+                self._handoff(sid, extra)
+                self.set_stage(prog, sid, "blocked", f"이미지 작업 {len(rows)}개 > 승인 상한 {limit}개 — --image-limit {len(rows)} 이상으로 승인해야 합니다")
                 return False
             if limit is not None:
                 from .image_queue import generate

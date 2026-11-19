@@ -5,7 +5,6 @@ import os
 import re
 import shutil
 import subprocess
-import sys
 import tempfile
 from dataclasses import dataclass
 
@@ -144,8 +143,8 @@ def status(*, path: Path | None = None) -> list[dict[str, object]]:
             for name, (purpose, commands) in MCP_SERVERS.items()]
 
 
-def apply(selected: list[str], *, yes: bool, runner=None, host: str = 'codex') -> list[str]:
-    """Install the selected MCP servers. Refuses unless the caller confirmed."""
+def apply(selected: list[str], *, yes: bool, runner=None, recipes: dict[str, list[str]] | None = None) -> list[str]:
+    """Run the caller-declared install recipes. No invented package names."""
     unknown = [name for name in selected if name not in MCP_SERVERS]
     if unknown:
         raise SetupError(f'unknown server: {", ".join(unknown)}')
@@ -153,12 +152,17 @@ def apply(selected: list[str], *, yes: bool, runner=None, host: str = 'codex') -
         raise SetupError('no server selected')
     if not yes:
         raise SetupError('confirmation_required')
+    declared = recipes or {}
+    missing = [name for name in selected if not declared.get(name)]
+    if missing:
+        raise SetupError(f"install_recipe_unknown: {', '.join(missing)} — 서버별 설치 명령을 지정하세요")
     run = runner or (lambda command: subprocess.run(command, check=True, capture_output=True, text=True))
     done = []
     for name in selected:
-        command = ([sys.executable, '-m', 'pip', 'install', f'cineforge-mcp-{name}'] if host == 'pip'
-                   else ['npx', '-y', f'@cineforge/{name}-mcp', 'install', '--host', host])
-        run(command)
+        try:
+            run(list(declared[name]))
+        except (OSError, subprocess.SubprocessError) as exc:
+            raise SetupError(f'install_failed: {name}: {exc}') from exc
         done.append(name)
     return done
 

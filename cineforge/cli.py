@@ -174,6 +174,8 @@ def cmd_select(args: argparse.Namespace) -> int:
 
 
 def cmd_run(args: argparse.Namespace) -> int:
+    if not (Path(args.project) / "project.json").is_file():
+        raise FileNotFoundError(f"프로젝트를 찾을 수 없습니다: {args.project}")
     project = Project(Path(args.project), router=build_router(args.provider, io_dir=Path(args.project) / "agent_io") if args.provider else None)
     if args.image_limit is not None:
         project.grant(image_limit=args.image_limit)
@@ -195,7 +197,11 @@ def cmd_setup(args: argparse.Namespace) -> int:
             print(f"{args.remove_key} 키를 삭제했습니다.")
             return 0
         if args.apply:
-            done = apply(args.apply, yes=args.yes, host=args.host)
+            recipes = {}
+            for item in getattr(args, "recipe", None) or []:
+                name, _, command = item.partition("=")
+                recipes[name] = command.split()
+            done = apply(args.apply, yes=args.yes, recipes=recipes)
             print("설치 완료: " + ", ".join(done) + f" (host={args.host})")
             return 0
     except SetupError as exc:
@@ -204,12 +210,14 @@ def cmd_setup(args: argparse.Namespace) -> int:
     for row in status():
         print(f"{row['server']:<12} 명령 {'준비' if row['command_available'] else '없음':<3} "
               f"키 {'등록' if row['key_registered'] else '없음':<3} {row['purpose']}")
-    print("설치: cineforge setup --apply " + " ".join(MCP_SERVERS) + " --yes")
+    print("설치: cineforge setup --apply suno --recipe 'suno=<설치 명령>' --yes")
     print("키 등록: cineforge setup --set-key <server>  (값은 숨김 입력)")
     return 0
 
 
 def cmd_status(args: argparse.Namespace) -> int:
+    if not (Path(args.project) / "project.json").is_file():
+        raise FileNotFoundError(f"프로젝트를 찾을 수 없습니다: {args.project}")
     project = Project(Path(args.project))
     prog = project.progress()
     from cineforge.progress import share, snapshot
@@ -224,6 +232,109 @@ def cmd_status(args: argparse.Namespace) -> int:
         print(banner(color=color))
         print()
         print(panel(prog, load("pipeline.yaml"), color=color))
+    return 0
+
+
+def cmd_execute(args: argparse.Namespace) -> int:
+    from cineforge.audio_jobs import plan_jobs as audio_plan
+    from cineforge.jobs import write_envelope
+    from cineforge.video_jobs import plan_jobs as video_plan
+
+    project = Path(args.project)
+    jobs = audio_plan(project) if args.stage == "S08_audio" else video_plan(project)
+    path = write_envelope(project, args.stage, jobs)
+    print(json.dumps({"stage": args.stage, "jobs": len(jobs), "envelope": str(path)}, ensure_ascii=False))
+    return 0
+
+
+def cmd_results(args: argparse.Namespace) -> int:
+    from cineforge.jobs import record_results
+
+    data = json.loads(Path(args.file).read_text(encoding="utf-8"))
+    path = record_results(Path(args.project), args.stage, list(data), runner_meta=args.runner or "")
+    if args.stage == "S08_audio":
+        from cineforge.audio_jobs import apply_results
+
+        apply_results(Path(args.project), list(data))
+    print(json.dumps({"stage": args.stage, "receipt": str(path)}, ensure_ascii=False))
+    return 0
+
+
+def cmd_edit(args: argparse.Namespace) -> int:
+    from cineforge.edit_plan import build, validate
+
+    project = Path(args.project)
+    plan = build(project)
+    issues = validate(project, plan)
+    if issues:
+        raise ValueError("; ".join(issues))
+    target = project / "edit/edit_plan.json"
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_text(json.dumps(plan, ensure_ascii=False, indent=2), encoding="utf-8")
+    print(json.dumps({"cuts": len(plan["cuts"]), "audio": len(plan["audio"]),
+                      "subtitles": len(plan["subtitles"]), "plan": str(target)}, ensure_ascii=False))
+    return 0
+
+
+def cmd_render(args: argparse.Namespace) -> int:
+    from cineforge.assembly import render
+
+    project = Path(args.project)
+    plan = json.loads((project / "edit/edit_plan.json").read_text(encoding="utf-8"))
+    size = tuple(int(part) for part in args.size.lower().split("x")) if args.size else None
+    if size is not None and len(size) != 2:
+        raise ValueError("--size는 WxH 형식입니다")
+    target = render(project, plan, output=args.output, size=size)
+    print(json.dumps({"render": str(target)}, ensure_ascii=False))
+    return 0
+
+
+def cmd_qa_final(args: argparse.Namespace) -> int:
+    from cineforge.final_qa import inspect
+
+    project = Path(args.project)
+    report = inspect(project, project / args.video)
+    print(json.dumps(report, ensure_ascii=False, indent=2) if args.json else f"최종 검수: {report['status']}")
+    return 0 if report["status"] == "pass" else 1
+
+
+def cmd_deliver(args: argparse.Namespace) -> int:
+    from cineforge.delivery import DeliveryError, deliver
+
+    try:
+        bundle = deliver(Path(args.project))
+    except DeliveryError as exc:
+        print(f"납품 차단: {exc}", file=sys.stderr)
+        return 1
+    print(json.dumps(bundle, ensure_ascii=False, indent=2) if args.json else f"납품: {bundle['video']}")
+    return 0
+
+
+def cmd_gate(args: argparse.Namespace) -> int:
+    from cineforge.gate import check
+
+    report = check(Path(args.project))
+    if args.json:
+        print(json.dumps(report.as_dict(), ensure_ascii=False, indent=2))
+    else:
+        print("납품 게이트: " + ("통과" if report.status == "pass" else f"차단 {len(report.blockers)}건"))
+        for row in report.blockers:
+            print(f"  - {row['kind']} {row['item']}: {row['reason']}")
+    return 0 if report.status == "pass" else 1
+
+
+def cmd_verify(args: argparse.Namespace) -> int:
+    from cineforge.gate import check, promote
+
+    project = Path(args.project)
+    if not (project / "project.json").is_file():
+        raise FileNotFoundError(f"프로젝트를 찾을 수 없습니다: {project}")
+    ids = [row["item"] for row in check(project).blockers] if args.all else list(args.asset or [])
+    if not ids:
+        print("검증할 에셋을 지정하세요: --asset ID 또는 --all", file=sys.stderr)
+        return 2
+    count = promote(project, ids)
+    print(f"검증 승격 {count}건 (파일·해시 재확인)")
     return 0
 
 
@@ -330,9 +441,54 @@ def build_parser() -> argparse.ArgumentParser:
     r.add_argument("--image-limit", type=int, help="Codex Imagen 실행 범위 상한(누적 건수). 비용 승인 아님")
     r.set_defaults(func=cmd_run)
 
+    g = sub.add_parser("gate", help="납품 게이트 점검(verified만 통과)")
+    g.add_argument("project")
+    g.add_argument("--json", action="store_true")
+    g.set_defaults(func=cmd_gate)
+
+    ex = sub.add_parser("execute", help="실행 봉투 생성(S08_audio/S08_video)")
+    ex.add_argument("project")
+    ex.add_argument("--stage", choices=["S08_audio", "S08_video"], default="S08_audio")
+    ex.set_defaults(func=cmd_execute)
+
+    rs = sub.add_parser("results", help="실행 결과 영수증 기록")
+    rs.add_argument("project")
+    rs.add_argument("--stage", choices=["S08_audio", "S08_video"], default="S08_audio")
+    rs.add_argument("--file", required=True)
+    rs.add_argument("--runner", default="")
+    rs.set_defaults(func=cmd_results)
+
+    ed = sub.add_parser("edit", help="편집 계획 생성")
+    ed.add_argument("project")
+    ed.set_defaults(func=cmd_edit)
+
+    rd = sub.add_parser("render", help="ffmpeg 조립")
+    rd.add_argument("project")
+    rd.add_argument("--output", default="edit/render.mp4")
+    rd.add_argument("--size")
+    rd.set_defaults(func=cmd_render)
+
+    qf = sub.add_parser("qa-final", help="최종 검수")
+    qf.add_argument("project")
+    qf.add_argument("--video", default="edit/render.mp4")
+    qf.add_argument("--json", action="store_true")
+    qf.set_defaults(func=cmd_qa_final)
+
+    dl = sub.add_parser("deliver", help="납품 번들 생성")
+    dl.add_argument("project")
+    dl.add_argument("--json", action="store_true")
+    dl.set_defaults(func=cmd_deliver)
+
+    v = sub.add_parser("verify", help="에셋·음성·테이크를 verified로 승격")
+    v.add_argument("project")
+    v.add_argument("--asset", action="append")
+    v.add_argument("--all", action="store_true")
+    v.set_defaults(func=cmd_verify)
+
     su = sub.add_parser("setup", help="필요 MCP 서버 확인·설치·키 등록")
     su.add_argument("--apply", nargs="+", metavar="SERVER", help="선택한 MCP 서버 설치 실행")
     su.add_argument("--yes", action="store_true", help="설치 실행 확인(없으면 거부)")
+    su.add_argument("--recipe", action="append", metavar="SERVER=CMD", help="서버 설치 명령(반복)")
     su.add_argument("--host", choices=["codex", "claude", "pi"], default="codex")
     su.add_argument("--set-key", metavar="SERVER", help="키를 숨김 입력으로 등록")
     su.add_argument("--remove-key", metavar="SERVER")
