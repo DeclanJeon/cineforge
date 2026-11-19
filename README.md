@@ -85,6 +85,21 @@ flowchart LR
 
 OST는 "노래 한 곡"이 아니라 **드라마 주제의 회수 장치**입니다. 그래서 `music_themes`에 주제가와 언더스코어를 분리해 두고, 큐에는 `role`·`vocal`을 기록합니다. BGM을 OST로, OST를 BGM으로 바꿔 부르지 않습니다.
 
+## 요청 라우팅·승인·검증
+
+```bash
+cineforge route "90초 드라마 만들어줘"        # production / other 판정(JSON)
+cineforge route --eval                        # 개발 케이스 정확도(≥0.9 요구)
+cineforge route --holdout                     # 별도 12케이스
+cineforge authorize <project> --spend-ceiling 20USD --providers suno,elevenlabs --hours 2
+cineforge verify <project> --all --attest "전체 파일 확인"
+```
+
+- 라우팅은 스킬 설명 유사도에만 기대지 않는다. `/home/declan/.agents/DEVELOPMENT-WORKFLOWS.md`가 제작 요청에서 `cineforge route`를 먼저 실행하도록 고정한다.
+- `authorize`는 **대화형 터미널에서 `APPROVE`를 입력**해야 기록되고, 기간(`--hours`)이 지나면 `execution_expired`로 다시 막힌다.
+- `verify`는 `--attest`에 사람이 확인한 내용을 적고 **터미널에서 `VERIFY`를 입력**해야 승격된다. 에이전트가 스스로 승격할 수 없다.
+- 키·OAuth는 CineForge가 대신 로그인하지 않는다. `cineforge setup`은 상태와 다음 단계만 보여 준다.
+
 ## 생성 이후 — 검수된 납품까지
 
 S07 이후를 CLI 한 번씩 이어 붙인다. 각 단계는 파일로 남고, 실패는 다음 단계로 넘어가지 않는다.

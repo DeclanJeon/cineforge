@@ -35,7 +35,7 @@ def test_gate_blocks_available_assets_until_verified(tmp_path):
     assert report.status == 'fail'
     assert len(report.blockers) == len(rows['assets'])
     assert all('not_verified' in row['reason'] for row in report.blockers)
-    assert promote(project.root, [row['asset_id'] for row in rows['assets']]) == len(rows['assets'])
+    assert promote(project.root, [row['asset_id'] for row in rows['assets']], attestation='파일 확인') == len(rows['assets'])
     assert check(project.root).status == 'pass'
 
 
@@ -43,7 +43,7 @@ def test_gate_detects_changed_or_missing_files(tmp_path):
     project = _project(tmp_path)
     rows = _make_assets(project)
     ids = [row['asset_id'] for row in rows['assets']]
-    promote(project.root, ids)
+    promote(project.root, ids, attestation='파일 확인')
     target = project.root / rows['assets'][0]['path']
     target.write_bytes(b'\x89PNG\r\n\x1a\nchanged')
     report = check(project.root)
@@ -57,20 +57,22 @@ def test_promote_refuses_unhashed_or_missing_files(tmp_path):
     project = _project(tmp_path)
     rows = project.read('assets/asset_registry.json')
     project.write('assets/asset_registry.json', rows, 'asset_registry')
-    assert promote(project.root, [rows['assets'][0]['asset_id']]) == 0
+    assert promote(project.root, [rows['assets'][0]['asset_id']], attestation='확인') == 0
     assert check(project.root).status == 'fail'
 
 
-def test_gate_cli_exit_codes_and_json(tmp_path, capsys):
+def test_gate_cli_exit_codes_and_json(tmp_path, capsys, monkeypatch):
     project = _project(tmp_path)
     rows = _make_assets(project)
     capsys.readouterr()
     assert main(['gate', str(project.root), '--json']) == 1
     payload = json.loads(capsys.readouterr().out)
     assert payload['status'] == 'fail' and payload['blockers']
-    assert main(['verify', str(project.root), '--asset', rows['assets'][0]['asset_id']]) == 0
+    monkeypatch.setattr('sys.stdin.isatty', lambda: True)
+    monkeypatch.setattr('builtins.input', lambda prompt='': 'VERIFY')
+    assert main(['verify', str(project.root), '--asset', rows['assets'][0]['asset_id'], '--attest', '파일 확인']) == 0
     assert main(['gate', str(project.root)]) == 1
-    assert main(['verify', str(project.root), '--all']) == 0
+    assert main(['verify', str(project.root), '--all', '--attest', '전체 확인']) == 0
     assert main(['gate', str(project.root)]) == 0
     capsys.readouterr()
 

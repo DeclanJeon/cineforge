@@ -28,7 +28,7 @@ IMPACT_TO_STAGE = {"plan": "S03_plan", "story": "S04_story", "concept": "S04_sto
                    "audio": "S07_assets", "assets/image_prompts": "S07_assets", "assets/video_prompts": "S07_assets",
                    "assets/frames": "S07_assets", "assets/sound_cue_sheet": "S07_assets"}
 DEFAULT_AUTHORITY = {"accept_plan": False, "accept_preproduction": False, "execution": False, "edit": False, "publish": False,
-                     "image_limit": None, "providers": None, "spend_ceiling": None, "granted_by": "user", "granted_at": None, "notes": []}
+                     "image_limit": None, "providers": None, "execution_until": None, "spend_ceiling": None, "granted_by": "user", "granted_at": None, "notes": []}
 
 
 def slugify(text: str) -> str:
@@ -140,6 +140,10 @@ class Project:
         for key, value in changes.items():
             if key == "image_limit" and (type(value) is not int or value < 0):
                 raise ValueError("image-limit must be a nonnegative integer")
+            if key == "execution_until" and (type(value) is not int or value <= 0):
+                raise ValueError("execution_until must be a unix timestamp")
+            if key == "providers" and value is not None and not isinstance(value, list):
+                raise ValueError("providers must be a list")
             if key not in DEFAULT_AUTHORITY:
                 raise KeyError(key)
             auth[key] = value

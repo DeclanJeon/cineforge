@@ -1,0 +1,52 @@
+{
+  "cases": [
+    {
+      "request": "20대 여성 캐릭터로 60초 멜로 영상 만들어줘",
+      "expect": "cineforge"
+    },
+    {
+      "request": "가로 16:9 다큐 형식으로 5분짜리 제작",
+      "expect": "cineforge"
+    },
+    {
+      "request": "이 스토리보드로 영상화해줘",
+      "expect": "cineforge"
+    },
+    {
+      "request": "효과음만 다시 뽑아줘",
+      "expect": "cineforge"
+    },
+    {
+      "request": "릴스 3편 시리즈로 기획해줘",
+      "expect": "cineforge"
+    },
+    {
+      "request": "영상 렌더가 실패했어 로그 봐줘",
+      "expect": "other"
+    },
+    {
+      "request": "파이썬 영상 처리 코드 예제 알려줘",
+      "expect": "other"
+    },
+    {
+      "request": "유튜브 영상 요약해줘",
+      "expect": "other"
+    },
+    {
+      "request": "영상 제작 견적 계산해줘",
+      "expect": "other"
+    },
+    {
+      "request": "배경음악 추천 리스트 주세요",
+      "expect": "other"
+    },
+    {
+      "request": "이 영상의 자막을 추출해줘",
+      "expect": "cineforge"
+    },
+    {
+      "request": "뉴스형 콘텐츠 90초 기획안 써줘",
+      "expect": "cineforge"
+    }
+  ]
+}

@@ -14,7 +14,7 @@ REQUEST = '15초 코미디 숏드라마, 시네마틱 실사'
 
 
 @pytest.mark.skipif(FFMPEG is None, reason='ffmpeg required')
-def test_request_reaches_delivered_mp4(tmp_path, capsys):
+def test_request_reaches_delivered_mp4(tmp_path, capsys, monkeypatch):
     project = prepared(tmp_path, REQUEST)
     capsys.readouterr()
     project.grant(execution=True, providers=['suno', 'elevenlabs', 'fish_audio', 'ludyte'])
@@ -46,7 +46,9 @@ def test_request_reaches_delivered_mp4(tmp_path, capsys):
     takes = [row['take_id'] for row in project.read('takes/take_registry.json')['takes']]
     cues = [row['cue_id'] for row in project.read('audio/audio_registry.json')['cues'] if row.get('status') == 'available']
     assert assets and takes and cues
-    assert main(['verify', str(project.root), '--all']) == 0
+    monkeypatch.setattr('sys.stdin.isatty', lambda: True)
+    monkeypatch.setattr('builtins.input', lambda prompt='': 'VERIFY')
+    assert main(['verify', str(project.root), '--all', '--attest', '파일 확인']) == 0
     assert check(project.root).status == 'pass'
     assert main(['qa-final', str(project.root), '--json']) == 0
     capsys.readouterr()

@@ -102,7 +102,12 @@ def authority(project: Path) -> dict[str, Any]:
 
 
 def require_authorized(project: Path, jobs: tuple[Job, ...], *, spend_ceiling: str | None = None) -> None:
+    import time
+
     auth = authority(project)
+    until = auth.get('execution_until')
+    if auth.get('execution') and isinstance(until, (int, float)) and until < time.time():
+        raise JobError('execution_expired')
     blocked = sorted({kind for kind in (job.kind for job in jobs) if REQUIRED[kind] and not auth.get(REQUIRED[kind])})
     if blocked:
         raise JobError(f'execution_not_authorized: {", ".join(blocked)}')

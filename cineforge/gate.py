@@ -58,7 +58,7 @@ def check(project: Path, *, stage: str = 'delivery') -> GateReport:
     return GateReport('pass' if not blockers else 'fail', tuple(blockers))
 
 
-def promote(project: Path, ids: list[str]) -> int:
+def promote(project: Path, ids: list[str], *, attestation: str = '', by: str = 'user') -> int:
     """Mark matching rows verified only after the file and hash are re-checked."""
     root = Path(project)
     promoted = 0
@@ -76,7 +76,7 @@ def promote(project: Path, ids: list[str]) -> int:
             output = root / str(row.get('path') or '')
             if row.get('status') == 'verified' or not output.is_file():
                 continue
-            row.update(status='verified', sha256=_sha(output), promoted_by='user')
+            row.update(status='verified', sha256=_sha(output), promoted_by=by, attestation=attestation)
             promoted += 1
             changed = True
         if changed:

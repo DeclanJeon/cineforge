@@ -310,6 +310,44 @@ def cmd_deliver(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_route(args: argparse.Namespace) -> int:
+    from cineforge.route import evaluate, judge
+
+    if args.eval or args.holdout:
+        import json as _json
+
+        if args.holdout:
+            from pathlib import Path as _Path
+
+            rows = _json.loads((_Path(__file__).parent / "data/routing_holdout.json").read_text(encoding="utf-8"))["cases"]
+            hits = sum(judge(row["request"])["route"] == row["expect"] for row in rows)
+            report = {"total": len(rows), "correct": hits, "accuracy": round(hits / len(rows), 3)}
+        else:
+            report = evaluate()
+        print(json.dumps(report, ensure_ascii=False, indent=2))
+        return 0 if report["accuracy"] >= 0.9 else 1
+    result = judge(args.request)
+    print(json.dumps(result, ensure_ascii=False, indent=2))
+    return 0
+
+
+def cmd_authorize(args: argparse.Namespace) -> int:
+    import time
+
+    if not sys.stdin.isatty():
+        raise PermissionError("승인은 대화형 터미널에서만 가능합니다")
+    answer = input(f"실행을 승인하려면 APPROVE 입력 (상한 {args.spend_ceiling or '미지정'}, {args.hours}시간): ")
+    if answer.strip() != "APPROVE":
+        print("승인 취소", file=sys.stderr)
+        return 1
+    project = Project(Path(args.project))
+    providers = [part.strip() for part in (args.providers or "").split(",") if part.strip()]
+    project.grant(execution=True, spend_ceiling=args.spend_ceiling, providers=providers or None,
+                  execution_until=int(time.time()) + args.hours * 3600, notes=["authorized-by-user"])
+    print(json.dumps(project.authority(), ensure_ascii=False, indent=2))
+    return 0
+
+
 def cmd_qa_playback(args: argparse.Namespace) -> int:
     from cineforge.playback import submit
 
@@ -350,7 +388,16 @@ def cmd_verify(args: argparse.Namespace) -> int:
     if not ids:
         print("검증할 에셋을 지정하세요: --asset ID 또는 --all", file=sys.stderr)
         return 2
-    count = promote(project, ids)
+    if not args.attest or not str(args.attest).strip():
+        print("사람 확인 내용을 --attest에 적어야 합니다", file=sys.stderr)
+        return 2
+    if not sys.stdin.isatty():
+        print("검증 승격은 대화형 터미널에서만 가능합니다", file=sys.stderr)
+        return 2
+    if input(f"{len(ids)}건을 verified로 승격하려면 VERIFY 입력: ").strip() != "VERIFY":
+        print("승격 취소", file=sys.stderr)
+        return 1
+    count = promote(project, ids, attestation=args.attest, by="user")
     print(f"검증 승격 {count}건 (파일·해시 재확인)")
     return 0
 
@@ -463,6 +510,19 @@ def build_parser() -> argparse.ArgumentParser:
     g.add_argument("--json", action="store_true")
     g.set_defaults(func=cmd_gate)
 
+    ro = sub.add_parser("route", help="제작 요청인지 판정")
+    ro.add_argument("request", nargs="?")
+    ro.add_argument("--eval", action="store_true")
+    ro.add_argument("--holdout", action="store_true")
+    ro.set_defaults(func=cmd_route)
+
+    au = sub.add_parser("authorize", help="실행 승인(대화형, 비용·기간·provider 한정)")
+    au.add_argument("project")
+    au.add_argument("--spend-ceiling")
+    au.add_argument("--providers")
+    au.add_argument("--hours", type=int, default=24)
+    au.set_defaults(func=cmd_authorize)
+
     qp = sub.add_parser("qa-playback", help="사람 재생 검수 기록(납품 해시 고정)")
     qp.add_argument("project")
     qp.add_argument("--file", required=True)
@@ -509,6 +569,7 @@ def build_parser() -> argparse.ArgumentParser:
     v.add_argument("project")
     v.add_argument("--asset", action="append")
     v.add_argument("--all", action="store_true")
+    v.add_argument("--attest", help="사람이 확인한 내용(필수)")
     v.set_defaults(func=cmd_verify)
 
     su = sub.add_parser("setup", help="필요 MCP 서버 확인·설치·키 등록")
