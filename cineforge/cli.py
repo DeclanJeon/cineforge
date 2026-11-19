@@ -329,6 +329,19 @@ def cmd_deliver(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_mcp_sync(args: argparse.Namespace) -> int:
+    from cineforge import mcp_sync
+
+    if args.action == "start":
+        result = mcp_sync.start(interval=args.interval)
+    elif args.action == "stop":
+        result = mcp_sync.stop()
+    else:
+        result = mcp_sync.status()
+    print(json.dumps(result, ensure_ascii=False, indent=2))
+    return 0 if result.get("status") not in ("start_failed", "stop_timeout") else 1
+
+
 def cmd_route(args: argparse.Namespace) -> int:
     from cineforge.route import evaluate, judge
 
@@ -528,6 +541,11 @@ def build_parser() -> argparse.ArgumentParser:
     g.add_argument("project")
     g.add_argument("--json", action="store_true")
     g.set_defaults(func=cmd_gate)
+
+    ms = sub.add_parser("mcp-sync", help="외부 MCP 설정 백그라운드 동기화")
+    ms.add_argument("action", choices=["start", "stop", "status"])
+    ms.add_argument("--interval", type=float, default=5.0)
+    ms.set_defaults(func=cmd_mcp_sync)
 
     ro = sub.add_parser("route", help="제작 요청인지 판정")
     ro.add_argument("request", nargs="?")
