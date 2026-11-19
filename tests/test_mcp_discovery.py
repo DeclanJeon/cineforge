@@ -55,13 +55,42 @@ def test_aliases_and_unknown_names():
     assert provider_of('playwright') is None
 
 
-def test_cli_discover_and_import(tmp_path, monkeypatch, capsys):
+def test_cli_setup_syncs_automatically_and_updates_on_change(tmp_path, monkeypatch, capsys):
     home = _home(tmp_path)
     monkeypatch.setenv('HOME', str(home))
+    assert main(['setup']) == 0
+    assert '자동 동기화' in capsys.readouterr().out
+    cache = home / '.config/cineforge/mcp.json'
+    first = json.loads(cache.read_text())
+    assert set(first['providers']) == {'elevenlabs', 'fish_audio', 'suno', 'typecast'}
+    (home / '.claude.json').write_text(json.dumps({'mcpServers': {'suno': {'command': 'suno-v2'}}}))
+    assert main(['setup']) == 0
+    second = json.loads(cache.read_text())
+    assert second['providers']['suno']['command'] == 'suno-v2'
+    assert 'typecast' not in second['providers']
+    capsys.readouterr()
     assert main(['setup', '--discover']) == 0
     out = json.loads(capsys.readouterr().out)
     assert 'elevenlabs' in out['matched'] and out['servers']
     assert main(['setup', '--import-mcp']) == 0
-    payload = json.loads(capsys.readouterr().out)
-    assert payload['imported'].startswith(str(home)) and 'suno' in payload['providers']
-    assert (home / '.config/cineforge/mcp.json').is_file()
+    assert json.loads(capsys.readouterr().out)['providers']
+
+
+def test_sync_reports_conflicts_and_keeps_first_source(tmp_path):
+    from cineforge.mcp_discovery import sync
+    rows = [{'agent': 'codex', 'source': '/a/config.toml', 'name': 'suno', 'command': 'a'},
+            {'agent': 'claude', 'source': '/b/.claude.json', 'name': 'suno', 'command': 'b'}]
+    report = sync(rows, target=tmp_path / 'mcp.json')
+    assert report['conflicts'][0]['provider'] == 'suno' and report['conflicts'][0]['alternatives'] == ['/b/.claude.json']
+    payload = json.loads((tmp_path / 'mcp.json').read_text())
+    assert payload['providers']['suno']['command'] == 'a'
+
+
+def test_no_sync_leaves_existing_cache(tmp_path, monkeypatch, capsys):
+    home = _home(tmp_path)
+    monkeypatch.setenv('HOME', str(home))
+    cache = home / '.config/cineforge/mcp.json'
+    cache.parent.mkdir(parents=True)
+    cache.write_text(json.dumps({'providers': {'suno': {'command': 'old'}}}))
+    assert main(['setup', '--no-sync']) == 0
+    assert json.loads(cache.read_text())['providers']['suno']['command'] == 'old'

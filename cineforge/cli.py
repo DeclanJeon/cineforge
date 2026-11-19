@@ -196,6 +196,14 @@ def cmd_setup(args: argparse.Namespace) -> int:
             remove_key(args.remove_key)
             print(f"{args.remove_key} 키를 삭제했습니다.")
             return 0
+        if args.no_sync and not (args.discover or args.import_mcp):
+            pass
+        elif not (args.discover or args.import_mcp) and not args.no_sync:
+            from cineforge.mcp_discovery import sync
+
+            report = sync()
+            print(f"MCP 자동 동기화: 추가 {len(report['added'])}, 갱신 {len(report['updated'])}, "
+                  f"제거 {len(report['removed'])}, 충돌 {len(report['conflicts'])} → {report['target']}")
         if args.discover or args.import_mcp:
             from cineforge.mcp_discovery import discover, import_config, matches
 
@@ -588,7 +596,8 @@ def build_parser() -> argparse.ArgumentParser:
     su.add_argument("--yes", action="store_true", help="설치 실행 확인(없으면 거부)")
     su.add_argument("--recipe", action="append", metavar="SERVER=CMD", help="서버 설치 명령(반복)")
     su.add_argument("--discover", action="store_true", help="다른 에이전트에 설치된 MCP 읽기")
-    su.add_argument("--import-mcp", action="store_true", help="발견한 MCP 항목을 CineForge 설정에 기록")
+    su.add_argument("--import-mcp", action="store_true", help="발견한 MCP 항목을 지금 즉시 기록")
+    su.add_argument("--no-sync", action="store_true", help="자동 동기화를 끄고 상태만 본다")
     su.add_argument("--host", choices=["codex", "claude", "pi"], default="codex")
     su.add_argument("--set-key", metavar="SERVER", help="키를 숨김 입력으로 등록")
     su.add_argument("--remove-key", metavar="SERVER")

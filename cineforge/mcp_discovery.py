@@ -110,16 +110,50 @@ def matches(rows: list[dict[str, Any]] | None = None) -> dict[str, dict[str, Any
     return found
 
 
-def import_config(rows: list[dict[str, Any]] | None = None, *, target: Path | None = None) -> Path:
+def _provider_rows(rows: list[dict[str, Any]]) -> dict[str, list[dict[str, Any]]]:
+    grouped: dict[str, list[dict[str, Any]]] = {}
+    for row in rows:
+        provider = provider_of(str(row['name']))
+        if provider:
+            grouped.setdefault(provider, []).append(row)
+    return grouped
+
+
+def sync(rows: list[dict[str, Any]] | None = None, *, target: Path | None = None) -> dict[str, Any]:
+    """Refresh the imported cache from the live host scan; never touch host configs."""
     path = target or config_path()
-    payload = {'schema_version': 1, 'imported_from': 'read-only host scan', 'providers': {}}
-    for provider, row in matches(rows).items():
-        payload['providers'][provider] = {key: row.get(key) for key in
-                                          ('agent', 'source', 'name', 'command', 'args', 'url', 'env_keys')}
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding='utf-8')
-    os.chmod(path, 0o600)
-    return path
+    grouped = _provider_rows(rows if rows is not None else discover())
+    previous = imported(path=path).get('providers', {})
+    providers: dict[str, Any] = {}
+    conflicts: list[dict[str, Any]] = []
+    added, updated, removed = [], [], []
+    for provider, candidates in sorted(grouped.items()):
+        chosen = candidates[0]
+        if len(candidates) > 1:
+            conflicts.append({'provider': provider, 'chosen': chosen['source'],
+                              'alternatives': sorted({row['source'] for row in candidates[1:]})})
+        entry = {key: chosen.get(key) for key in ('agent', 'source', 'name', 'command', 'args', 'url', 'env_keys')}
+        if provider not in previous:
+            added.append(provider)
+        elif previous[provider].get('source') != entry['source'] or previous[provider].get('command') != entry['command'] \
+                or previous[provider].get('args') != entry['args'] or previous[provider].get('url') != entry['url']:
+            updated.append(provider)
+        providers[provider] = entry
+    removed = sorted(set(previous) - set(providers))
+    payload = {'schema_version': 1, 'imported_from': 'read-only host scan',
+               'providers': providers, 'conflicts': conflicts}
+    changed = providers != previous or conflicts != imported(path=path).get('conflicts', [])
+    if changed:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding='utf-8')
+        os.chmod(path, 0o600)
+    return {'target': str(path), 'added': added, 'updated': updated, 'removed': removed,
+            'conflicts': conflicts, 'changed': changed}
+
+
+def import_config(rows: list[dict[str, Any]] | None = None, *, target: Path | None = None) -> Path:
+    result = sync(rows, target=target)
+    return Path(result['target'])
 
 
 def imported(*, path: Path | None = None) -> dict[str, Any]:
