@@ -253,3 +253,7 @@ cineforge/
 python -m pytest -q                       # 오프라인 51개 통과, 실호출 2개 건너뜀
 CINEFORGE_LIVE=1 python -m pytest -q tests/test_live_openrouter.py   # 키 필요, 소액 과금
 ```
+
+## 라이선스
+
+[MIT](LICENSE) © 2026 Declan Jeon
