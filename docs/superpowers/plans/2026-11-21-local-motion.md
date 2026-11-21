@@ -11,3 +11,13 @@
 
 ## 새 브리프 후속 검증
 `~/Documents/Media_Studio/motion-e2e-UZY7zJ/{ui,type,control}`. 실제 host 인계로 새 세 브리프를 작성. G2 1회에서 무음과 기본 오디오 큐 충돌, UI 읽기 시간, 대조군 등장인물 누락을 발견하고 수정. 2회에서 수정 확인. UI/타이포는 S08 외부 실행 대신 로컬 모션 렌더로 안내되고 `execute`는 거부. 둘 다 15초(450프레임) 무음 세로 MP4 출력. UI 프레임 155/156/179/180과 타이포 세 카드 확인. 대조군에는 motion recipe를 넣지 않았고 로컬 렌더 거부 확인. 시각 결과물은 사용자 납품 전. 최종 전체 테스트 134 passed, 2 skipped.
+
+## 확장: 순차 단계도
+- [x] `diagram_data` 중 무음 9:16 순차 절차(`steps` 2–3개, `reveal_frames`)를 FFmpeg로 렌더. 숫자 데이터나 분기형 차트는 지원하지 않음. 마지막 단계 공개 뒤 최소 30프레임 유지.
+- [x] 실제 호스트·G2·CLI로 `~/Documents/Media_Studio/library-steps-motion/qa/motion-preview.mp4` 제작. 450프레임, 전체 디코드 통과. 첫 두 번째 카드의 공개 경계(35→36) 픽셀 차이 및 4개 대표 화면 확인. 납품 승인 미기록.
+- [x] 신규 회귀 RED 2개 재현 → 구현 후 통과. CineForge 전체 136 passed, 2 skipped.
+
+## 확장: 형태 변환
+- [x] `shape_morph`: 사각형·둥근 사각형·원 사이에서 중심을 고정하고 윤곽을 보간. 결과 문구는 종료 프레임 이후, 최소 1초 유지. 임의 SVG나 로고 변환은 아님.
+- [x] 호스트/G2/CLI로 `~/Documents/Media_Studio/rounded-heart-motion/qa/motion-preview.mp4` 출력. 450프레임 전체 디코드 및 프레임 75/200/299/300 대표 화면 확인. 299에는 결과 문구가 없고 300부터 보임. 납품·푸시 미실행.
+- [x] 형태 변환 테스트 RED 2개에서 구현 후 GREEN, 전체 138 passed, 2 skipped.

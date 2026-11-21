@@ -127,7 +127,7 @@ cineforge execute <project> --stage S08_video
 
 ## 로컬 모션 그래픽
 
-`ui_state`·`kinetic_type`을 선택한 **무음 9:16 프로젝트**는 컷의 `motion` 데이터를 같은 로컬 렌더러로 실행합니다. UI 선택 및 결과는 30fps 프레임 번호로 기록합니다. 현재 G2에서 검수한 입력과 일치해야 하며, FFmpeg(`drawtext`, `libx264`), ffprobe, 사용할 글리프가 있는 폰트 파일이 필요합니다. 생성 공급자를 호출하지 않습니다.
+`ui_state`·`kinetic_type`·`diagram_data`(수치 없는 순차 단계도)·`shape_morph`(사각형·둥근 사각형·원 변형)·`card_sequence`(텍스트 스택·캐러셀·비교)·`echo_type`(구절 스택)·`image_reveal`/`pose_swap`(승인 자산 레이어)·`chart_bars`(출처 필수 막대)·`paper_layers`·`map_route`를 선택한 **무음 9:16 프로젝트**는 컷의 `motion` 데이터를 같은 로컬 렌더러로 실행합니다. UI 선택 및 결과는 30fps 프레임 번호로 기록합니다. 현재 G2에서 검수한 입력과 일치해야 하며, FFmpeg(`drawtext`, `libx264`), ffprobe, 사용할 글리프가 있는 폰트 파일이 필요합니다. 생성 공급자를 호출하지 않습니다.
 
 ```bash
 cineforge motion "$project" --font /path/to/font.ttf
@@ -135,7 +135,7 @@ cineforge motion "$project" --font /path/to/font.ttf
 cineforge motion "$project" --deliver <확인한-SHA256>
 ```
 
-두 번째 명령은 로컬 `final/motion.mp4`와 `motion-delivery.json`을 작성합니다. 기술 검수는 사용자 재생 확인을 대신하지 않고, 로컬 납품은 게시가 아닙니다. 오디오·차트·3D 렌더는 이 명령의 지원 범위가 아닙니다.
+두 번째 명령은 로컬 `final/motion.mp4`와 `motion-delivery.json`을 작성합니다. 기술 검수는 사용자 재생 확인을 대신하지 않고, 로컬 납품은 게시가 아닙니다. 단계도는 `steps` 2~3개와 `reveal_frames`로 순차 공개하며 마지막 뒤 1초 이상 유지합니다. 컷 보조 효과 `motion.entrance`의 `wipe_left`/ `wipe_right`는 완전 공개 시점을 30fps 프레임으로 지정합니다. 주요 상태 변화 전에 끝나야 합니다. 승인 자산은 `assets/motion_assets.json`에 `{path, sha256, rights}`로 등록하며, 불일치·미등록·프로젝트 밖 경로는 렌더하지 않습니다. 차트는 `source`가 없으면 거부합니다. `loop: true`는 실제 첫·마지막 프레임이 같아야 통과합니다. 형태 변환은 30fps 시작·종료 프레임을 지정하고 같은 중심에서 윤곽을 바꾼 뒤 결과 문구를 공개합니다. 오디오·통계 차트·분기형 관계도·임의 SVG 변형·3D 렌더는 지원 범위가 아닙니다.
 
 ## 생성 이후 — 검수된 납품까지
 

@@ -20,7 +20,11 @@ def _fingerprint(root: Path, packets=None) -> tuple[dict[str, str], str]:
     missing = [name for name in PRE if not (root/name).is_file()]
     if missing:
         raise ValueError(f'review inputs not ready: {missing}')
-    files = {name: hashlib.sha256((root/name).read_bytes()).hexdigest() for name in PRE}
+    names = list(PRE)
+    extra = 'assets/motion_assets.json'
+    if (root/extra).is_file():
+        names.append(extra)
+    files = {name: hashlib.sha256((root/name).read_bytes()).hexdigest() for name in names}
     digest = hashlib.sha256(json.dumps([files, packets], sort_keys=True).encode()).hexdigest()
     return files, digest
 

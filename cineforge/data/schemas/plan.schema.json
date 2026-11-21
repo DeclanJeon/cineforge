@@ -199,14 +199,172 @@
                 "motion": {
                   "type": "object",
                   "properties": {
-                    "headline": {"type": "string", "minLength": 1, "maxLength": 48},
-                    "detail": {"type": "string", "maxLength": 48},
-                    "option": {"type": "string", "maxLength": 48},
-                    "reply": {"type": "string", "maxLength": 48},
-                    "select_frame": {"type": "integer", "minimum": 1},
-                    "reply_frame": {"type": "integer", "minimum": 1}
+                    "headline": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 48
+                    },
+                    "detail": {
+                      "type": "string",
+                      "maxLength": 48
+                    },
+                    "option": {
+                      "type": "string",
+                      "maxLength": 48
+                    },
+                    "reply": {
+                      "type": "string",
+                      "maxLength": 48
+                    },
+                    "select_frame": {
+                      "type": "integer",
+                      "minimum": 1
+                    },
+                    "reply_frame": {
+                      "type": "integer",
+                      "minimum": 1
+                    },
+                    "steps": {
+                      "type": "array",
+                      "minItems": 2,
+                      "maxItems": 3,
+                      "items": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 28
+                      }
+                    },
+                    "reveal_frames": {
+                      "type": "array",
+                      "minItems": 2,
+                      "maxItems": 3,
+                      "items": {
+                        "type": "integer",
+                        "minimum": 0
+                      }
+                    },
+                    "from_shape": {
+                      "enum": [
+                        "square",
+                        "rounded_square",
+                        "circle"
+                      ]
+                    },
+                    "to_shape": {
+                      "enum": [
+                        "square",
+                        "rounded_square",
+                        "circle"
+                      ]
+                    },
+                    "morph_start_frame": {
+                      "type": "integer",
+                      "minimum": 0
+                    },
+                    "morph_end_frame": {
+                      "type": "integer",
+                      "minimum": 2
+                    },
+                    "layout": {
+                      "enum": [
+                        "stack",
+                        "carousel",
+                        "compare"
+                      ]
+                    },
+                    "cards": {
+                      "type": "array",
+                      "minItems": 2,
+                      "maxItems": 3,
+                      "items": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 24
+                      }
+                    },
+                    "poster": {
+                      "enum": [
+                        "editorial",
+                        "pop",
+                        "dark"
+                      ]
+                    },
+                    "type_reveal": {
+                      "type": "object",
+                      "properties": {
+                        "phrases": {
+                          "type": "array",
+                          "minItems": 2,
+                          "maxItems": 3,
+                          "items": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 24
+                          }
+                        },
+                        "reveal_frames": {
+                          "type": "array",
+                          "minItems": 2,
+                          "maxItems": 3,
+                          "items": {
+                            "type": "integer",
+                            "minimum": 0
+                          }
+                        }
+                      },
+                      "required": [
+                        "phrases",
+                        "reveal_frames"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "connector_frames": {
+                      "type": "integer",
+                      "minimum": 2
+                    },
+                    "burst": {
+                      "type": "object",
+                      "properties": {
+                        "at_frame": {
+                          "type": "integer",
+                          "minimum": 0
+                        },
+                        "seed": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 65535
+                        }
+                      },
+                      "required": [
+                        "at_frame",
+                        "seed"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "entrance": {
+                      "type": "object",
+                      "properties": {
+                        "kind": {
+                          "enum": [
+                            "wipe_left",
+                            "wipe_right"
+                          ]
+                        },
+                        "duration_frames": {
+                          "type": "integer",
+                          "minimum": 2
+                        }
+                      },
+                      "required": [
+                        "kind",
+                        "duration_frames"
+                      ],
+                      "additionalProperties": false
+                    }
                   },
-                  "required": ["headline"],
+                  "required": [
+                    "headline"
+                  ],
                   "additionalProperties": false
                 }
               },
@@ -321,10 +479,31 @@
         "motion_recipe": {
           "type": "object",
           "properties": {
-            "recipe": {"enum": ["kinetic_type", "ui_state", "diagram_data", "shape_morph", "character_photo", "brand_product", "realtime_3d"]},
-            "reason": {"type": "string", "minLength": 1}
+            "recipe": {
+              "enum": [
+                "kinetic_type",
+                "ui_state",
+                "diagram_data",
+                "shape_morph",
+                "card_sequence",
+                "character_photo",
+                "brand_product",
+                "realtime_3d",
+                "image_reveal",
+                "chart_bars",
+                "paper_layers",
+                "map_route"
+              ]
+            },
+            "reason": {
+              "type": "string",
+              "minLength": 1
+            }
           },
-          "required": ["recipe", "reason"]
+          "required": [
+            "recipe",
+            "reason"
+          ]
         }
       },
       "required": [
