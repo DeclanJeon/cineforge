@@ -261,7 +261,13 @@ def cmd_execute(args: argparse.Namespace) -> int:
 
     project = Path(args.project)
     jobs = audio_plan(project) if args.stage == "S08_audio" else video_plan(project)
-    path = write_envelope(project, args.stage, jobs)
+    if args.preview:
+        from dataclasses import asdict
+
+        print(json.dumps({'stage': args.stage, 'jobs': [asdict(job) for job in jobs]}, ensure_ascii=False))
+        return 0
+    quotes = json.loads(Path(args.quotes).read_text(encoding='utf-8')) if args.quotes else None
+    path = write_envelope(project, args.stage, jobs, quotes=quotes)
     print(json.dumps({"stage": args.stage, "jobs": len(jobs), "envelope": str(path)}, ensure_ascii=False))
     return 0
 
@@ -363,8 +369,24 @@ def cmd_route(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_execution_plan(args: argparse.Namespace) -> int:
+    from cineforge.execution_plan import proposal
+
+    data = json.loads(Path(args.file).read_text(encoding="utf-8"))
+    print(json.dumps(proposal(Project(Path(args.project)), data), ensure_ascii=False, indent=2))
+    return 0
+
+
 def cmd_authorize(args: argparse.Namespace) -> int:
     import time
+    from cineforge.execution_plan import approve
+
+    if args.approve_plan is not None:
+        if args.providers is not None or args.spend_ceiling is not None:
+            raise ValueError("use_provider_and_ceiling_from_execution_plan")
+        approval = approve(Project(Path(args.project)), args.approve_plan, args.hours)
+        print(json.dumps(approval, ensure_ascii=False, indent=2))
+        return 0
 
     if not sys.stdin.isatty():
         raise PermissionError("승인은 대화형 터미널에서만 가능합니다")
@@ -553,8 +575,14 @@ def build_parser() -> argparse.ArgumentParser:
     ro.add_argument("--holdout", action="store_true")
     ro.set_defaults(func=cmd_route)
 
-    au = sub.add_parser("authorize", help="실행 승인(대화형, 비용·기간·provider 한정)")
+    ep = sub.add_parser("execution-plan", help="제작 시작 전 공급자·모델·예상 비용 범위 제안")
+    ep.add_argument("project")
+    ep.add_argument("--file", required=True)
+    ep.set_defaults(func=cmd_execution_plan)
+
+    au = sub.add_parser("authorize", help="실행 계획 해시 승인 또는 기존 대화형 승인")
     au.add_argument("project")
+    au.add_argument("--approve-plan", metavar="HASH", help="이미 명시적으로 승인받은 실행 계획 기록")
     au.add_argument("--spend-ceiling")
     au.add_argument("--providers")
     au.add_argument("--hours", type=int, default=24)
@@ -572,6 +600,8 @@ def build_parser() -> argparse.ArgumentParser:
     ex = sub.add_parser("execute", help="실행 봉투 생성(S08_audio/S08_video)")
     ex.add_argument("project")
     ex.add_argument("--stage", choices=["S08_audio", "S08_video"], default="S08_audio")
+    ex.add_argument("--preview", action="store_true", help="견적용 작업 조회만 수행, 실행 봉투 미작성")
+    ex.add_argument("--quotes", help="유료 작업별 검증한 견적 JSON 파일")
     ex.set_defaults(func=cmd_execute)
 
     rs = sub.add_parser("results", help="실행 결과 영수증 기록")

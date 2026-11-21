@@ -96,9 +96,34 @@ cineforge verify <project> --all --attest "전체 파일 확인"
 ```
 
 - 라우팅은 스킬 설명 유사도에만 기대지 않는다. `/home/declan/.agents/DEVELOPMENT-WORKFLOWS.md`가 제작 요청에서 `cineforge route`를 먼저 실행하도록 고정한다.
-- `authorize`는 **대화형 터미널에서 `APPROVE`를 입력**해야 기록되고, 기간(`--hours`)이 지나면 `execution_expired`로 다시 막힌다.
+- 새 호스트 워크플로우에서는 프로젝트 생성 직후 **제작 실행 계획**을 제안하고, 사용자 채팅 승인 뒤 `authorize --approve-plan HASH`로 기록한다. S08에서 터미널 확인을 반복하지 않는다. 기존 `authorize` 호출은 호환용이며 여전히 대화형이다. 만료되면 실행을 차단한다.
 - `verify`는 `--attest`에 사람이 확인한 내용을 적고 **터미널에서 `VERIFY`를 입력**해야 승격된다. 에이전트가 스스로 승격할 수 없다.
 - 키·OAuth는 CineForge가 대신 로그인하지 않는다. `cineforge setup`은 상태와 다음 단계만 보여 준다.
+
+### 제작 초반 실행 계획
+
+먼저 영상·음성·음악의 필요 범위와 공급자/모델을 확인하고, 예상 작업 수와 비용을 한 번에 제시한다. 선택된 생성 작업만 `scope.json`에 담는다. 예:
+
+```json
+{"lanes":[
+  {"kind":"video_cut","provider":"ludyte","model":"singularity-full-v2","max_jobs":4},
+  {"kind":"bgm","provider":"suno","model":"v6","max_jobs":1,"unit":"credits","estimate":"10","ceiling":"12"}
+]}
+```
+
+```bash
+cineforge execution-plan <project> --file scope.json
+# 위에 출력된 정확한 범위를 사용자에게 제시하고 명시적으로 승인받은 뒤:
+cineforge authorize <project> --approve-plan <hash> --hours 24
+# 대본·보드·에셋 준비 후:
+cineforge execute <project> --stage S08_audio --preview
+cineforge execute <project> --stage S08_audio --quotes quotes.json
+cineforge execute <project> --stage S08_video
+```
+
+견적은 호출자가 실제 공급자에서 확인해 작업 ID별로 `{"unit":"credits","amount":"10","evidence":"견적 출처 또는 ID"}` 형태로 전달한다. CLI는 견적을 직접 가져오지 않는다. 초반에 비용을 알 수 없으면 `estimate: null`을 쓰되 유료 작업마다 상한을 정하고 실제 실행 봉투 작성 전에 견적을 확인한다. 러다이트 영상에는 비용 상한을 지정하지 않는다. 이는 무과금이나 공급자 계정 권한을 보증하지 않는다. Codex Imagen 정지 이미지는 기존 별도 이미지 실행 범위를 따른다.
+
+계획 승인에는 정확한 해시를 사용한다. 공급자·모델·작업 수·상한 범위를 벗어나면 실행 봉투를 내지 않는다. 아직 봉투를 발급하지 않았다면 새 계획을 작성하고 변경분을 승인받는다. 이미 발급한 봉투는 덮어쓰지 않는다. 미확정 요청이나 재작업은 기존 실행 상태·비용을 먼저 대조해야 한다. 이 CLI는 범위를 기록할 뿐 채팅 승인 진위를 독자적으로 검증하지 않으므로, 호출자는 실제 사용자 승인을 받은 경우에만 `--approve-plan`을 호출한다.
 
 ## 생성 이후 — 검수된 납품까지
 

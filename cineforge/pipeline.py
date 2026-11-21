@@ -428,6 +428,18 @@ class Project:
         stage = next(s for s in self.pipeline["stages"] if s["id"] == sid)
         extra = {"spend_ceiling": self.authority().get("spend_ceiling")}
         if sid == "S08_generation":
+            from . import execution_plan
+
+            if (plan := execution_plan.read(self.root)) is not None:
+                # The legacy handoff is broad and cannot represent lane/model/quote scope.
+                try:
+                    execution_plan.approved(self.root, plan)
+                except ValueError as exc:
+                    self.set_stage(prog, sid, "blocked", str(exc))
+                else:
+                    self.set_stage(prog, sid, "waiting_external",
+                                   "실행 계획 범위 확인 → cineforge execute --preview / execute --stage S08_audio 또는 S08_video")
+                return False
             extra["cost_plan"] = (self.read("reviews/preproduction_review.json") or {}).get("summary", {}).get("cost_plan")
             extra["prompts"] = ["assets/image_prompts.json", "assets/video_prompts.json", "assets/frames.json"]
             rows = self.read("assets/image_prompts.json")["prompts"]

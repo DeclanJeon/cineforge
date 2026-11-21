@@ -6,6 +6,8 @@ import json
 from pathlib import Path
 from typing import Any
 
+from . import execution_plan
+
 JOB_KINDS = ('image', 'video_cut', 'ost', 'bgm', 'sfx', 'dialogue')
 PROVIDER_OF = {'ost': 'suno', 'bgm': 'suno', 'sfx': 'elevenlabs', 'dialogue': 'fish_audio',
                'video_cut': 'ludyte', 'image': 'codex-imagen'}
@@ -41,6 +43,8 @@ def binding(project: Path) -> str:
     names = ['project.json', 'authority.json', 'plan.json', 'selection.json',
              'ssot/scene.json', 'ssot/audio.json', 'ssot/camera.json', 'ssot/motion.json',
              'assets/sound_plan.json', 'assets/video_prompts.json', 'assets/asset_registry.json']
+    if (project / execution_plan.PLAN).is_file():
+        names += [execution_plan.PLAN, execution_plan.APPROVAL]
     digest = hashlib.sha256()
     for name in names:
         path = project / name
@@ -51,10 +55,17 @@ def binding(project: Path) -> str:
 def _job(project: Path, *, job_id: str, kind: str, inputs: list[str], prompt: str,
          target: str, params: dict[str, Any], depends_on: tuple[str, ...] = ()) -> Job:
     pins = tuple((name, _sha(project / name)) for name in inputs)
-    spec = {'job_id': job_id, 'kind': kind, 'provider': PROVIDER_OF[kind], 'tool': TOOL_OF[kind],
+    plan = execution_plan.read(project)
+    lane = plan['lanes'].get(kind) if plan else None
+    provider, tool = PROVIDER_OF[kind], TOOL_OF[kind]
+    if lane:
+        provider = lane['provider']
+        tool = 'generate_video' if provider == 'higgsfield' else tool
+        params = {**params, 'model': lane['model']}
+    spec = {'job_id': job_id, 'kind': kind, 'provider': provider, 'tool': tool,
             'inputs': pins, 'prompt': prompt, 'params': params, 'depends_on': depends_on}
     key = hashlib.sha256(json.dumps([binding(project), spec], sort_keys=True).encode()).hexdigest()
-    return Job(job_id, kind, PROVIDER_OF[kind], TOOL_OF[kind], pins, prompt,
+    return Job(job_id, kind, provider, tool, pins, prompt,
                tuple(sorted((str(k), str(v)) for k, v in params.items())), key, depends_on)
 
 
@@ -104,6 +115,9 @@ def authority(project: Path) -> dict[str, Any]:
 def require_authorized(project: Path, jobs: tuple[Job, ...], *, spend_ceiling: str | None = None) -> None:
     import time
 
+    if (plan := execution_plan.read(project)) is not None:
+        _check_scope(project, jobs, plan)
+        return
     auth = authority(project)
     until = auth.get('execution_until')
     if auth.get('execution') and isinstance(until, (int, float)) and until < time.time():
@@ -117,16 +131,71 @@ def require_authorized(project: Path, jobs: tuple[Job, ...], *, spend_ceiling: s
             raise JobError(f'provider_not_allowed: {", ".join(refused)}')
 
 
-def write_envelope(project: Path, stage: str, jobs: tuple[Job, ...], *, note: str = '') -> Path:
+def _check_scope(project: Path, jobs: tuple[Job, ...], plan: dict[str, Any]) -> dict[str, Any]:
+    try:
+        approval = execution_plan.approved(project, plan)
+    except ValueError as exc:
+        raise JobError(str(exc)) from exc
+    counts: dict[str, int] = {}
+    for job in jobs:
+        lane = plan['lanes'].get(job.kind)
+        counts[job.kind] = counts.get(job.kind, 0) + 1
+        if (not lane or job.provider != lane['provider'] or dict(job.params).get('model') != lane['model']
+                or counts[job.kind] > lane['max_jobs']):
+            raise JobError(f'execution_scope_changed: {job.kind}')
+    return approval
+
+
+def _check_quotes(plan: dict[str, Any], jobs: tuple[Job, ...], quotes: dict[str, Any]) -> None:
+    if not isinstance(quotes, dict):
+        raise JobError('invalid_execution_quotes')
+    if len({job.job_id for job in jobs}) != len(jobs) or set(quotes) - {job.job_id for job in jobs}:
+        raise JobError('invalid_execution_quotes')
+    totals: dict[str, Any] = {}
+    for job in jobs:
+        lane = plan['lanes'][job.kind]
+        if 'ceiling' not in lane:
+            if job.job_id in quotes:
+                raise JobError(f'execution_scope_changed: unexpected paid quote for {job.job_id}')
+            continue
+        quote = quotes.get(job.job_id)
+        if (not isinstance(quote, dict) or quote.get('unit') != lane['unit']
+                or not isinstance(quote.get('evidence'), str) or not quote['evidence'].strip()):
+            raise JobError(f'execution_quote_required: {job.job_id}')
+        totals[job.kind] = totals.get(job.kind, 0) + execution_plan.amount(quote.get('amount'))
+        if totals[job.kind] > execution_plan.amount(lane['ceiling']):
+            raise JobError(f'execution_ceiling_exceeded: {job.kind}')
+
+
+def write_envelope(project: Path, stage: str, jobs: tuple[Job, ...], *, note: str = '',
+                   quotes: dict[str, Any] | None = None) -> Path:
     require_authorized(project, jobs)
+    plan = execution_plan.read(project)
+    scope = {key: authority(project).get(key) for key in ('execution', 'spend_ceiling', 'providers')}
+    if plan is not None:
+        if (stage not in ('S08_audio', 'S08_video')
+                or any((job.kind == 'video_cut') != (stage == 'S08_video') for job in jobs)):
+            raise JobError('execution_scope_changed: wrong stage')
+        approval = execution_plan.approved(project, plan)
+        _check_quotes(plan, jobs, {} if quotes is None else quotes)
+        scope = {'execution_plan_hash': approval['plan_hash'], 'expires_at': approval['expires_at'],
+                 'lanes': plan['lanes'], 'quotes': quotes or {}}
     payload = {'schema_version': 1, 'stage': stage, 'binding': binding(project),
                'project_root': str(project.resolve()), 'note': note,
-               'authority': {key: authority(project).get(key) for key in ('execution', 'spend_ceiling', 'providers')},
+               'authority': scope,
                'jobs': [{'job_id': job.job_id, 'kind': job.kind, 'provider': job.provider, 'tool': job.tool,
                          'inputs': dict(job.inputs), 'prompt': job.prompt, 'params': dict(job.params),
                          'idempotency_key': job.idempotency_key, 'depends_on': list(job.depends_on)} for job in jobs]}
     path = project / 'jobs' / f'{stage}.json'
     path.parent.mkdir(parents=True, exist_ok=True)
+    if plan is not None:
+        try:
+            with path.open('x', encoding='utf-8') as stream:
+                json.dump(payload, stream, ensure_ascii=False, indent=2)
+        except FileExistsError:
+            if json.loads(path.read_text(encoding='utf-8')) != payload:
+                raise JobError('execution_envelope_already_issued')
+        return path
     path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding='utf-8')
     return path
 
