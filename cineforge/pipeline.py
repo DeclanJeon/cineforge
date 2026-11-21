@@ -322,6 +322,20 @@ class Project:
                   "inputs": [str(p.relative_to(self.root)) for p in sorted((self.root / "ssot").glob("*.json"))] + ["plan.json", "selection.json"],
                   "outputs_expected": stage["outputs"], "packet": extra or {},
                   "completion_command": f"cineforge complete {self.root} {sid} --evidence <파일...>"}
+        if sid in {'S06_storyboard', 'S07_assets', 'S08_generation', 'S09_edit', 'S10_qa'}:
+            request = self.meta.get('request', '')
+            realtime = re.search(r'실시간\s*3d|스크롤\s*(?:기반\s*)?모션|three\.js|scroll[- ]driven\s+motion|real[- ]time\s+3d', request, re.I)
+            motion = re.search(r'모션\s*그래픽|키네틱\s*타이포|(?:제품\s*)?ui\s*데모|motion\s+graphics?|kinetic\s+type|ui\s+demo|(?:motion\s+design|code[- ]rendered)\s+showreel', request, re.I)
+            choice = (self.read('plan.json') or {}).get('production_spec', {}).get('motion_recipe')
+            if motion or realtime or choice:
+                packet['craft_refs'] = ['video-production-assets/references/08b-code-motion-production.md']
+                if choice:
+                    packet['motion_recipe'] = choice
+                    packet['craft_refs'].insert(0, 'creative-production/references/motion-selection.md')
+                if realtime or (choice and choice['recipe'] == 'realtime_3d'):
+                    packet['craft_refs'].append('open-3d-production/references/realtime-motion-direction.md')
+                packet['craft_instruction'] = ('현재 단계 작업 전에 craft_refs와 해당 오너 지침을 읽고 컷 상태·타이밍·실제 출력 검수에 반영. '
+                                               '참조 연결은 렌더러 선택이나 실행·과금 승인이 아님.')
         if sid in EXTERNAL_STAGES:
             names = packet["inputs"] + (extra or {}).get("prompts", []) + list((extra or {}).get("images", {}).values())
             for previous in self.pipeline["stages"]:
@@ -441,7 +455,11 @@ class Project:
         extra = {"spend_ceiling": self.authority().get("spend_ceiling")}
         if sid == "S08_generation":
             from . import execution_plan
+            from .local_motion import has_local_motion
 
+            if has_local_motion(self.read('plan.json') or {}):
+                self.set_stage(prog, sid, 'waiting_external', '로컬 모션 → cineforge motion <project> --font <font>')
+                return False
             plan = execution_plan.read(self.root)
             if plan is not None:
                 try:

@@ -16,6 +16,25 @@ RULES = {
     'prompt': 'First infer expected start/action/end and ambiguity using ONLY each submitted prompt, params and actual reference images. Then compare to cut intent, persona, sound routing, reveal timing, provider capabilities and usable edit duration. Prediction is not observation.'}
 
 
+def _fingerprint(root: Path, packets=None) -> tuple[dict[str, str], str]:
+    missing = [name for name in PRE if not (root/name).is_file()]
+    if missing:
+        raise ValueError(f'review inputs not ready: {missing}')
+    files = {name: hashlib.sha256((root/name).read_bytes()).hexdigest() for name in PRE}
+    digest = hashlib.sha256(json.dumps([files, packets], sort_keys=True).encode()).hexdigest()
+    return files, digest
+
+
+def reviewed_plan_hash(root: Path) -> str:
+    """Read-only check; execution must not create a new review pass."""
+    ledger = root/'reviews/pre-passes.json'
+    history = json.loads(ledger.read_text()) if ledger.is_file() else []
+    files, digest = _fingerprint(root)
+    if not history or history[-1]['digest'] != digest or (len(history) == 1 and history[-1]['findings']):
+        raise ValueError('local motion inputs do not match the completed preproduction review')
+    return files['plan.json']
+
+
 def review(root: Path, phase: str, packets=None):
     """Host inspects artifacts; mock projects never purport to have semantic QA."""
     if json.loads((root/'project.json').read_text()).get('provider_mode') == 'mock':
@@ -26,11 +45,7 @@ def review(root: Path, phase: str, packets=None):
     with (directory/f'.{phase}.lock').open('a') as lock:
         fcntl.flock(lock, fcntl.LOCK_EX)
         history = json.loads(ledger.read_text()) if ledger.exists() else []
-        missing = [name for name in PRE if not (root/name).is_file()]
-        if missing:
-            raise ValueError(f'review inputs not ready: {missing}')
-        files = {name: hashlib.sha256((root/name).read_bytes()).hexdigest() for name in PRE}
-        digest = hashlib.sha256(json.dumps([files, packets], sort_keys=True).encode()).hexdigest()
+        files, digest = _fingerprint(root, packets)
         if history and (len(history) == 2 or (not history[-1]['findings'] and digest == history[-1]['digest'])):
             if digest != history[-1]['digest']:
                 raise ValueError('reviewed version changed: restore last reviewed inputs before proceeding')

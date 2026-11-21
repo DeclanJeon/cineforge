@@ -125,6 +125,18 @@ cineforge execute <project> --stage S08_video
 
 계획 승인에는 정확한 해시를 사용한다. 공급자·모델·작업 수·상한 범위를 벗어나면 실행 봉투를 내지 않는다. 아직 봉투를 발급하지 않았다면 새 계획을 작성하고 변경분을 승인받는다. 이미 발급한 봉투는 덮어쓰지 않는다. 미확정 요청이나 재작업은 기존 실행 상태·비용을 먼저 대조해야 한다. 이 CLI는 범위를 기록할 뿐 채팅 승인 진위를 독자적으로 검증하지 않으므로, 호출자는 실제 사용자 승인을 받은 경우에만 `--approve-plan`을 호출한다.
 
+## 로컬 모션 그래픽
+
+`ui_state`·`kinetic_type`을 선택한 **무음 9:16 프로젝트**는 컷의 `motion` 데이터를 같은 로컬 렌더러로 실행합니다. UI 선택 및 결과는 30fps 프레임 번호로 기록합니다. 현재 G2에서 검수한 입력과 일치해야 하며, FFmpeg(`drawtext`, `libx264`), ffprobe, 사용할 글리프가 있는 폰트 파일이 필요합니다. 생성 공급자를 호출하지 않습니다.
+
+```bash
+cineforge motion "$project" --font /path/to/font.ttf
+# qa/motion-preview.mp4를 직접 확인한 뒤, qa/motion-report.json의 정확한 SHA-256 사용
+cineforge motion "$project" --deliver <확인한-SHA256>
+```
+
+두 번째 명령은 로컬 `final/motion.mp4`와 `motion-delivery.json`을 작성합니다. 기술 검수는 사용자 재생 확인을 대신하지 않고, 로컬 납품은 게시가 아닙니다. 오디오·차트·3D 렌더는 이 명령의 지원 범위가 아닙니다.
+
 ## 생성 이후 — 검수된 납품까지
 
 S07 이후를 CLI 한 번씩 이어 붙인다. 각 단계는 파일로 남고, 실패는 다음 단계로 넘어가지 않는다.

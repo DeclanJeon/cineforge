@@ -65,6 +65,8 @@ def build_payload(selection: dict[str, Any], concept: dict[str, Any], intake: di
             "대사는 초당 5음절을 넘지 않는다",
             "무음성(no_speech) 제약이면 dialogue는 비우고 sound에 효과음·음악만 쓴다",
             "실존 작품의 장면·대사·캐릭터를 복제하지 않는다",
+            "9:16 무음 로컬 모션을 선택했다면 컷에 motion 구조를 기록한다. ui_state는 headline 또는 headline/option/reply/select_frame/reply_frame. kinetic_type은 headline/detail. 문구는 한 줄씩 48자 이하. 30fps 프레임 오프셋으로 선택 후에 답장, 답장 뒤 최소 1초 유지. speech, sound와 음악이 필요하면 무음 로컬 레인을 사용하지 않는다.",
+            "소재만 위임받으면 관객이 이해하거나 느낄 것에 맞춰 표현 형식을 정한다. 모션이 유리하면 기법 키워드가 없어도 production_spec.motion_recipe에 recipe와 reason을 기록한다. 후보: kinetic_type=문구 대비, ui_state=행동/결과, diagram_data=관계/순서, shape_morph=개념 변환, character_photo=표정/기존 사진, brand_product=실제 기능/브랜드, realtime_3d=깊이/조작. 각 컷의 visual에 시작·변화·끝과 읽기 시간을 반영한다. 모션이 필요 없으면 이 필드를 생략한다. 실행 승인은 추론하지 않는다.",
         ],
     }
 

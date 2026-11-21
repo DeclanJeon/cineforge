@@ -260,6 +260,10 @@ def cmd_execute(args: argparse.Namespace) -> int:
     from cineforge.video_jobs import plan_jobs as video_plan
 
     project = Path(args.project)
+    from cineforge.local_motion import has_local_motion
+
+    if has_local_motion(Project(project).read('plan.json') or {}):
+        raise ValueError('structured local motion uses cineforge motion, not provider execution')
     jobs = audio_plan(project) if args.stage == "S08_audio" else video_plan(project)
     if args.preview:
         from dataclasses import asdict
@@ -311,6 +315,24 @@ def cmd_render(args: argparse.Namespace) -> int:
         raise ValueError("--size는 WxH 형식입니다")
     target = render(project, plan, output=args.output, size=size)
     print(json.dumps({"render": str(target)}, ensure_ascii=False))
+    return 0
+
+
+def cmd_motion(args: argparse.Namespace) -> int:
+    from .local_motion import deliver, render
+    from .phase_review import reviewed_plan_hash
+
+    root = Path(args.project).resolve()
+    if not (root / 'project.json').is_file():
+        raise ValueError('CineForge project.json missing')
+    if Project(root).progress()['stages']['G2_preproduction_review']['status'] != 'done':
+        raise ValueError('finish G2 preproduction review before local motion execution')
+    reviewed_hash = reviewed_plan_hash(root)
+    if args.deliver:
+        result = deliver(root, args.deliver)
+    else:
+        result = render(root, Path(args.font).expanduser().resolve(), reviewed_hash=reviewed_hash)
+    print(json.dumps(result, ensure_ascii=False))
     return 0
 
 
@@ -620,6 +642,13 @@ def build_parser() -> argparse.ArgumentParser:
     rd.add_argument("--output", default="edit/render.mp4")
     rd.add_argument("--size")
     rd.set_defaults(func=cmd_render)
+
+    motion = sub.add_parser("motion", help="무음 세로 모션 렌더 또는 해시 승인 납품")
+    motion.add_argument("project")
+    mode = motion.add_mutually_exclusive_group(required=True)
+    mode.add_argument("--font", help="로컬 프리뷰 렌더에 사용할 폰트")
+    mode.add_argument("--deliver", metavar="SHA256", help="직접 검토한 프리뷰 해시로 납품")
+    motion.set_defaults(func=cmd_motion)
 
     qf = sub.add_parser("qa-final", help="최종 검수")
     qf.add_argument("project")

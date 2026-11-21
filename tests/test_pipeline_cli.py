@@ -57,6 +57,47 @@ def test_nonstop_reaches_generation_handoff(tmp_path, capsys):
     assert "진행률" in out and "작업률" in out and "조합된 제작 콘셉트" in out
 
 
+def test_motion_request_reaches_craft_handoffs(tmp_path):
+    for project_id, request, realtime in (
+        ('motion', SAMPLE_REQUEST + ' MBTI 키네틱 타이포 모션 그래픽 영상.', False),
+        ('web', SAMPLE_REQUEST + ' 실시간 3D 스크롤 모션 그래픽.', True),
+        ('plain', SAMPLE_REQUEST, False),
+    ):
+        assert main(['new', request, '--projects-dir', str(tmp_path), '--project-id', project_id,
+                     '--provider', 'mock']) == 0
+        p = Project(tmp_path / project_id)
+        for stage in ('S06_storyboard', 'S07_assets', 'S08_generation'):
+            handoff = p.read(f'handoffs/{stage}.json')
+            refs = handoff.get('craft_refs', [])
+            assert any('08b-code-motion' in ref for ref in refs) == (project_id != 'plain')
+            assert any('realtime-motion-direction' in ref for ref in refs) == realtime
+        assert not p.authority()['execution']
+
+
+def test_delegated_topic_carries_plan_choice_without_craft_keyword(tmp_path, monkeypatch):
+    from cineforge import pipeline
+
+    original = pipeline.generate_plan
+
+    def host_choice(router, payload):
+        assert 'MBTI로 영상 하나 만들어줘' in payload['request']
+        assert any('motion_recipe' in rule and '키워드' in rule for rule in payload['rules'])
+        plan, provider = original(router, payload)
+        plan['production_spec']['motion_recipe'] = {'recipe': 'ui_state', 'reason': '선택 뒤에 답장이 달라지는 상황극'}
+        plan['scenes'][0]['cuts'][0]['visual'] = '메시지 표시 → 선택 → 답장 표시; 마지막 화면을 읽을 시간 확보'
+        return plan, provider
+
+    monkeypatch.setattr(pipeline, 'generate_plan', host_choice)
+    assert main(['new', 'MBTI로 영상 하나 만들어줘', '--projects-dir', str(tmp_path),
+                 '--project-id', 'mbti', '--provider', 'mock']) == 0
+    p = Project(tmp_path / 'mbti')
+    result = p.read('handoffs/S06_storyboard.json')
+    assert result['motion_recipe']['recipe'] == 'ui_state'
+    assert 'creative-production/references/motion-selection.md' in result['craft_refs']
+    assert '선택 → 답장' in p.read('ssot/scene.json')['data']['cuts'][0]['visual']
+    assert not p.authority()['execution']
+
+
 def test_progress_rates_monotonic(tmp_path):
     project = Project.create(tmp_path, SAMPLE_REQUEST, "mock", "r")
     pipeline = load("pipeline.yaml")

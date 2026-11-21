@@ -96,6 +96,12 @@ def _duck_music(rows: list[dict[str, Any]], cuts: list[dict[str, Any]]) -> list[
 
 def cues_from_plan(cuts: list[dict[str, Any]], plan: dict[str, Any], silent: bool) -> list[dict[str, Any]]:
     """Public entry used by the audio SSOT; schedules and numbers the cues."""
+    from .local_motion import compile_plan, has_local_motion
+
+    # Silence for a local structured motion lane is different from no dialogue.
+    if has_local_motion(plan):
+        compile_plan(plan)
+        return []
     numbered = []
     for index, row in enumerate(cue_rows(plan, silent, cuts), start=1):
         numbered.append({'cue_id': f'Q{index:03d}', 'type': row['type'], 'tc_in': round(float(row['tc_in']), 2),

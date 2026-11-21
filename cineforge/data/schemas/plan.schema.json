@@ -195,6 +195,19 @@
                 },
                 "state": {
                   "type": "object"
+                },
+                "motion": {
+                  "type": "object",
+                  "properties": {
+                    "headline": {"type": "string", "minLength": 1, "maxLength": 48},
+                    "detail": {"type": "string", "maxLength": 48},
+                    "option": {"type": "string", "maxLength": 48},
+                    "reply": {"type": "string", "maxLength": 48},
+                    "select_frame": {"type": "integer", "minimum": 1},
+                    "reply_frame": {"type": "integer", "minimum": 1}
+                  },
+                  "required": ["headline"],
+                  "additionalProperties": false
                 }
               },
               "required": [
@@ -304,6 +317,14 @@
         },
         "subtitles": {
           "type": "string"
+        },
+        "motion_recipe": {
+          "type": "object",
+          "properties": {
+            "recipe": {"enum": ["kinetic_type", "ui_state", "diagram_data", "shape_morph", "character_photo", "brand_product", "realtime_3d"]},
+            "reason": {"type": "string", "minLength": 1}
+          },
+          "required": ["recipe", "reason"]
         }
       },
       "required": [
