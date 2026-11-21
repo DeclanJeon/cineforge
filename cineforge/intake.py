@@ -19,7 +19,7 @@ FACTORS: list[dict[str, Any]] = [
      "fills": "S03_plan", "if_missing": "레퍼런스 없이 콘셉트 라이브러리로 설계"},
     {"id": "plot_concept", "ko": "원하는 플롯이나 컨셉이 있나?", "keywords": ["플롯", "컨셉", "콘셉트", "설정", "이야기", "내용은"],
      "fills": "S01_selection", "if_missing": "장르·소재·관계·세계관 선택 또는 AI 추천"},
-    {"id": "lead_character", "ko": "주연으로 쓰일 캐릭터가 있나?", "keywords": ["주인공", "주연", "캐릭터", "한서윤", "서윤"],
+    {"id": "lead_character", "ko": "주연으로 쓰일 캐릭터가 있나?", "keywords": ["주인공", "주연", "캐릭터"],
      "fills": "S05_character_world", "if_missing": "AI가 주연 캐릭터 바이블을 설계"},
     {"id": "voice", "ko": "목소리(대사·내레이션)는?", "keywords": ["목소리", "보이스", "음성", "내레이션", "더빙", "무음성", "대사 없", "말 없", "무성"],
      "fills": "S01_selection", "if_missing": "사운드 축(무성/대사/내레이션/음악/ASMR) 선택"},
@@ -31,7 +31,6 @@ FACTORS: list[dict[str, Any]] = [
      "fills": "S01_selection", "if_missing": "연출 8개 하위 축·제작 방식 선택"},
 ]
 
-SEOYUN_NAMES = ("한서윤", "서윤")
 NO_SPEECH_PATTERNS = ["무음성", "대사 없", "대사없", "말 없", "speech 없", "no speech", "무성"]
 
 
@@ -150,11 +149,15 @@ def analyze(request: str, router: ProviderRouter, tax: Taxonomy, inputs: dict[st
         factors[fid] = {"ko": f["ko"], "status": status, "evidence": evidence, "source": source,
                         "fills_stage": f["fills"], "if_missing": f["if_missing"]}
     constraints: list[str] = []
-    # 사용자 고정 규칙: 한서윤(AI 페르소나) 영상은 대사 없음 + AI임을 숨기지 않음
-    seoyun = any(name in request or name in str(inputs.get("lead_character") or "") for name in SEOYUN_NAMES)
-    if seoyun:
+    if "ai 페르소나" in request.lower():
         constraints.append("ai_persona_disclosure")
-    if any(p in request for p in NO_SPEECH_PATTERNS) or inputs.get("no_speech") or seoyun:
+    silent = any(p in request for p in NO_SPEECH_PATTERNS) or inputs.get("no_speech")
+    if silent and inputs.get("with_dialogue"):
+        raise ValueError("대사 사용과 무대사 요청이 충돌합니다")
+    if inputs.get("with_dialogue"):
+        detected.setdefault("direction", {})["sound"] = "dialogue_driven"
+        factors["voice"].update(status="provided", evidence="대사 사용", source="input")
+    if silent:
         constraints.append("no_speech")
         detected.setdefault("direction", {}).setdefault("sound", "silent")
         factors["voice"].update(status="provided", evidence="무음성(대사 없음) 제약", source="rule")

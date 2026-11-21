@@ -61,17 +61,32 @@ def image_prompts(project_id: str, ssots: dict[str, dict[str, Any]], aspect: str
     chars = {c["id"]: c for c in _ssot(ssots, "character")["characters"]}
     locs = {l["id"]: l for l in _ssot(ssots, "world")["locations"]}
     cams = {c["cut_id"]: c for c in _ssot(ssots, "camera")["cuts"]}
+    world = _ssot(ssots, "world")
     color = "; ".join(concept["direction_rules"].get("color_texture", [])) or look
     negative = ", ".join(NEGATIVE_BASE + concept.get("forbidden_props", []))
     prompts: list[dict[str, Any]] = []
     for c in chars.values():
-        prompts.append({"prompt_id": f"IMG-{c['id']}-SHEET", "target": c["name"], "cut_id": None, "kind": "character_sheet",
-                        "prompt": f"캐릭터 시트, 정면·측면·뒷모습 3면, 중립 표정과 감정 표정 4종. {c['identity_anchor']}. 의상: {c['wardrobe'][0]['description']}. {look}. 단색 배경.",
+        views = ["front_full", "three_quarter_full", "profile_left_full", "back_full",
+                 "face_front", "face_three_quarter", "face_profile_left"]
+        prompts.append({"prompt_id": f"A-{c['id']}-MASTER", "target": c["name"], "cut_id": None, "kind": "character_sheet",
+                        "view_ids": views,
+                        "prompt": f"캐릭터 정체성 시트 한 장, 7뷰(전신 정면·3/4·측면·후면, 얼굴 정면·3/4·측면), 중립 표정. {c['identity_anchor']}. 같은 인물·같은 의상. {look}. 단색 배경.",
                         "negative": negative, "refs": [], "params": {"aspect": "16:9"}, "ssot_versions": _versions(ssots, ["character", "concept"])})
+        for w in c["wardrobe"]:
+            prompts.append({"prompt_id": f"A-{w['id']}", "target": c["name"], "cut_id": None, "kind": "wardrobe",
+                            "prompt": f"의상 참조 시트, 한 벌: {w['description']}. 정면·후면·착용 전신 3면, 인물 정체성 유지, 무대 배경 없음. {look}.",
+                            "negative": negative, "refs": [f"A-{c['id']}-MASTER"], "params": {"aspect": "1:1"},
+                            "ssot_versions": _versions(ssots, ["character", "concept"])})
     for l in locs.values():
-        prompts.append({"prompt_id": f"IMG-{l['id']}-PLATE", "target": l["name"], "cut_id": None, "kind": "location_plate",
-                        "prompt": f"{l['name']} 배경 플레이트(인물 없음). 레이아웃: {l['layout']}. 조명: {l['lighting']}. {color}.",
-                        "negative": negative, "refs": [], "params": {"aspect": aspect}, "ssot_versions": _versions(ssots, ["world", "concept"])})
+        prompts.append({"prompt_id": f"A-{l['id']}", "target": l["name"], "cut_id": None, "kind": "location_spatial_sheet",
+                        "view_ids": ["establishing", "reverse", "lateral", "top_down"],
+                        "prompt": f"{l['name']} 공간 시트 한 장, 4뷰(정면·반대편·측면·위에서 본 평면), 인물 없음. 레이아웃: {l['layout']}. 출입구·창·장애물·광원 위치 표시. 조명: {l['lighting']}. {color}.",
+                        "negative": negative, "refs": [], "params": {"aspect": "16:9"}, "ssot_versions": _versions(ssots, ["world", "concept"])})
+    for pr in world["props"]:
+        prompts.append({"prompt_id": f"A-{pr['id']}", "target": pr["name"], "cut_id": None, "kind": "prop_reference",
+                        "prompt": f"소품 참조 시트, {pr['name']}: 정면·후면·측면·3/4, 상태 변형과 실제 스케일 기준(손·자). 배경 없음. {look}.",
+                        "negative": negative, "refs": [], "params": {"aspect": "1:1"},
+                        "ssot_versions": _versions(ssots, ["world", "concept"])})
     for cut in _ssot(ssots, "scene")["cuts"]:
         cam = cams[cut["cut_id"]]
         who = []
@@ -87,7 +102,7 @@ def image_prompts(project_id: str, ssots: dict[str, dict[str, Any]], aspect: str
             prompts.append({"prompt_id": f"IMG-{cut['cut_id']}-{'S' if kind == 'start_frame' else 'E'}", "target": cut["cut_id"], "cut_id": cut["cut_id"], "kind": kind,
                             "prompt": f"{look}. {cam['shot_size']}, {cam['lens_mm']}mm 렌즈 느낌, {cam['angle']}. 장소: {loc['name']}, {cut[state_key].get('lighting') or loc['lighting']}. "
                                       f"{' / '.join(who) or '인물 없음'}. 장면: {cut['visual']}. {color}.",
-                            "negative": negative, "refs": [f"IMG-{cid}-SHEET" for cid in cut["characters"]] + [f"IMG-{cut['location_id']}-PLATE"],
+                            "negative": negative, "refs": [f"A-{cid}-MASTER" for cid in cut["characters"]] + [f"A-{cut['location_id']}"] + [f"A-{w}" for w in cut["start_state"]["wardrobe"].values()],
                             "params": {"aspect": aspect}, "ssot_versions": _versions(ssots, ["character", "world", "scene", "camera"])})
     return {"project_id": project_id, "kind": "image", "prompts": prompts}
 

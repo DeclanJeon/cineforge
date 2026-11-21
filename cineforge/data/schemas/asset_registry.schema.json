@@ -29,6 +29,7 @@
             "enum": [
               "planned",
               "generated",
+              "available",
               "verified",
               "locked",
               "stale"
@@ -45,6 +46,12 @@
             "items": {
               "type": "string"
             }
+          },
+          "sha256": {
+            "type": [
+              "string",
+              "null"
+            ]
           }
         },
         "required": [

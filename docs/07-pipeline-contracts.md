@@ -54,3 +54,8 @@
   "completion_command": "cineforge complete <프로젝트> S08_generation --evidence <파일...>"
 }
 ```
+
+
+## 생성 이후 구현 계약 (2.62 이후)
+
+S08 이후의 실행·영수증·편집·검수·납품은 [제작 완결 설계](superpowers/specs/2026-11-20-production-closure-design.md)와 [작업지시서](superpowers/plans/2026-11-20-production-closure.md)가 정한다. 요약: `jobs/<stage>.json`(실행 봉투) → `receipts/<stage>.json`(영수증) → `takes/`, `audio/` → `edit/edit_plan.json` → `edit/render.mp4` → `qa/final_report.json` → `final/delivery.json`. `available`은 납품 근거가 아니며 `verified`만 게이트를 통과한다.

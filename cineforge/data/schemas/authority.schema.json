@@ -39,6 +39,15 @@
       "items": {
         "type": "string"
       }
+    },
+    "providers": {
+      "type": [
+        "array",
+        "null"
+      ],
+      "items": {
+        "type": "string"
+      }
     }
   },
   "required": [

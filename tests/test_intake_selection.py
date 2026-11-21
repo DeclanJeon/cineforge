@@ -61,7 +61,10 @@ def test_interactive_with_scripted_answers(tax, mock_router):
     assert out["narrative"] == "ending_first"  # 감지된 값은 유지
 
 
-def test_seoyun_videos_have_no_speech(tax, mock_router):
-    result = analyze("한서윤이 비 오는 날 카페에서 일하는 30초 영상", mock_router, tax).to_dict()
-    assert "no_speech" in result["constraints"] and "ai_persona_disclosure" in result["constraints"]
-    assert result["detected_selection"]["direction"]["sound"] == "silent"
+def test_speech_is_independent_of_cast(tax, mock_router):
+    for name in ("한서윤", "지민"):
+        result = analyze(f"주연 {name}, 카페에서 일하는 30초 영상", mock_router, tax).to_dict()
+        assert "no_speech" not in result["constraints"]
+        assert "ai_persona_disclosure" not in result["constraints"]
+        silent = analyze(f"AI 페르소나 주연 {name}, 대사 없음", mock_router, tax).to_dict()
+        assert {"no_speech", "ai_persona_disclosure"} <= set(silent["constraints"])

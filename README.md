@@ -64,6 +64,136 @@ flowchart LR
 | 📊 | 진행 표시 | 진행률·작업률 막대, 단계별 상태·작업 수·검수 결과·담당 스킬 |
 | 🤝 | 스킬 인계 | 단계마다 담당 스킬을 지정한 인계 패킷(`handoffs/*.json`), 증거 파일로만 `complete` |
 
+## 터미널 화면과 에이전트 진행 공유
+
+`cineforge status`는 로고·단계 표·진행률·작업률·다음 행동·멈춤 사유를 보여 줍니다. 색은 TTY에서만 쓰고 `NO_COLOR=1`이나 리다이렉트에서는 같은 정보를 서식 없이 냅니다. `--json`은 화면 장식 없이 `schema_version: 1` 스냅샷만 출력합니다.
+
+`cineforge new`·`run`·`status`는 같은 스냅샷을 `agent_io/progress.json`에 원자적으로 씁니다. 다른 AI 에이전트·감독 프로세스는 이 파일 하나로 현재 단계, 단계별 완료/전체 작업, 검수 상태, 다음 행동, 멈춤 사유를 읽습니다. 별도 상태 원장을 만들지 않으며 `progress.json`이 여전히 정본입니다.
+
+### 사운드 레이어 결정표
+
+사운드 설계는 S04 대본·S06 콘티와 같은 `plan.json`에서 계산되어 `script.md`, `ssot/scene.json`의 컷 `sound`, `ssot/audio.json`, `assets/sound_plan.json`이 같은 값을 공유합니다. 화면마다 다음 우선순위로 한 겹을 고릅니다.
+
+| 순간 | 쓰는 것 | 담당 | 규칙 |
+|---|---|---|---|
+| 오프닝 훅·엔딩 | **OST(주제가)** | Suno, 보컬 | 씬 하나에 한 번, 최대 12초. 같은 선율을 엔딩에서 회수. 무대사 작품은 같은 곡을 연주 버전으로 |
+| 대사 아래 | **BGM 언더스코어** | Suno, 무보컬 | OST와 같은 구간에 겹치지 않음. 대사 구간 -20 dB |
+| 장소 전환·호흡 | **공간음(AMBIENCE)** | ElevenLabs | 씬 전체에 깔되 -28 LUFS, 루프 |
+| 행동·소품·타격 | **효과음(SFX)** | ElevenLabs | 컷의 `sound`가 동작을 지시할 때만 단발 |
+| 인물의 말 | **대사(DIALOGUE)** | Fish Audio(TypeCast 대체) | 무대사 제약이면 생성하지 않음 |
+| 의도적 정적 | **무음** | — | 감정 전환·반전 직전. 다른 레이어를 끄고 만든다 |
+
+OST는 "노래 한 곡"이 아니라 **드라마 주제의 회수 장치**입니다. 그래서 `music_themes`에 주제가와 언더스코어를 분리해 두고, 큐에는 `role`·`vocal`을 기록합니다. BGM을 OST로, OST를 BGM으로 바꿔 부르지 않습니다.
+
+## 요청 라우팅·승인·검증
+
+```bash
+cineforge route "90초 드라마 만들어줘"        # production / other 판정(JSON)
+cineforge route --eval                        # 개발 케이스 정확도(≥0.9 요구)
+cineforge route --holdout                     # 별도 12케이스
+cineforge authorize <project> --spend-ceiling 20USD --providers suno,elevenlabs --hours 2
+cineforge verify <project> --all --attest "전체 파일 확인"
+```
+
+- 라우팅은 스킬 설명 유사도에만 기대지 않는다. `/home/declan/.agents/DEVELOPMENT-WORKFLOWS.md`가 제작 요청에서 `cineforge route`를 먼저 실행하도록 고정한다.
+- 새 호스트 워크플로우에서는 프로젝트 생성 직후 **제작 실행 계획**을 제안하고, 사용자 채팅 승인 뒤 `authorize --approve-plan HASH`로 기록한다. S08에서 터미널 확인을 반복하지 않는다. 기존 `authorize` 호출은 호환용이며 여전히 대화형이다. 만료되면 실행을 차단한다.
+- `verify`는 `--attest`에 사람이 확인한 내용을 적고 **터미널에서 `VERIFY`를 입력**해야 승격된다. 에이전트가 스스로 승격할 수 없다.
+- 키·OAuth는 CineForge가 대신 로그인하지 않는다. `cineforge setup`은 상태와 다음 단계만 보여 준다.
+
+### 제작 초반 실행 계획
+
+먼저 영상·음성·음악의 필요 범위와 공급자/모델을 확인하고, 예상 작업 수와 비용을 한 번에 제시한다. 선택된 생성 작업만 `scope.json`에 담는다. 예:
+
+```json
+{"lanes":[
+  {"kind":"video_cut","provider":"ludyte","model":"singularity-full-v2","max_jobs":4},
+  {"kind":"bgm","provider":"suno","model":"v6","max_jobs":1,"unit":"credits","estimate":"10","ceiling":"12"}
+]}
+```
+
+```bash
+cineforge execution-plan <project> --file scope.json
+# 위에 출력된 정확한 범위를 사용자에게 제시하고 명시적으로 승인받은 뒤:
+cineforge authorize <project> --approve-plan <hash> --hours 24
+# 대본·보드·에셋 준비 후:
+cineforge execute <project> --stage S08_audio --preview
+cineforge execute <project> --stage S08_audio --quotes quotes.json
+cineforge execute <project> --stage S08_video
+```
+
+견적은 호출자가 실제 공급자에서 확인해 작업 ID별로 `{"unit":"credits","amount":"10","evidence":"견적 출처 또는 ID"}` 형태로 전달한다. CLI는 견적을 직접 가져오지 않는다. 초반에 비용을 알 수 없으면 `estimate: null`을 쓰되 유료 작업마다 상한을 정하고 실제 실행 봉투 작성 전에 견적을 확인한다. 러다이트 영상에는 비용 상한을 지정하지 않는다. 이는 무과금이나 공급자 계정 권한을 보증하지 않는다. Codex Imagen 정지 이미지는 기존 별도 이미지 실행 범위를 따른다.
+
+계획 승인에는 정확한 해시를 사용한다. 공급자·모델·작업 수·상한 범위를 벗어나면 실행 봉투를 내지 않는다. 아직 봉투를 발급하지 않았다면 새 계획을 작성하고 변경분을 승인받는다. 이미 발급한 봉투는 덮어쓰지 않는다. 미확정 요청이나 재작업은 기존 실행 상태·비용을 먼저 대조해야 한다. 이 CLI는 범위를 기록할 뿐 채팅 승인 진위를 독자적으로 검증하지 않으므로, 호출자는 실제 사용자 승인을 받은 경우에만 `--approve-plan`을 호출한다.
+
+## 생성 이후 — 검수된 납품까지
+
+S07 이후를 CLI 한 번씩 이어 붙인다. 각 단계는 파일로 남고, 실패는 다음 단계로 넘어가지 않는다.
+
+```bash
+cineforge execute <project> --stage S08_audio   # OST/BGM/SFX/대사 job 봉투
+cineforge results <project> --stage S08_audio --file results.json
+cineforge execute <project> --stage S08_video   # 컷별 영상 job 봉투
+cineforge edit <project>                        # 결정적 편집 계획
+cineforge render <project>                      # ffmpeg 조립 + 음량 정규화
+cineforge verify <project> --all                # 사람 확인 후 verified 승격
+cineforge gate <project>                        # verified 게이트
+cineforge qa-final <project>                    # 해시·길이·스트림·음량·자막 검수
+cineforge deliver <project>                     # final/<project>.mp4 + .srt + delivery.json
+```
+
+- 영수증은 입력·출력 SHA-256을 남기고, 불명 작업은 자동 재시도하지 않는다.
+- `deliver`는 게이트와 최종 검수를 모두 통과할 때만 파일을 만든다. 하나라도 실패하면 기존 납품을 보존한다.
+- `edit/proxy.json`에 `{"width":540,"height":960}`을 두면 프록시 해상도로 렌더한다. 검수는 실제 렌더 크기를 기준으로 한다.
+- 실제 provider 호출은 `execution` 승인과 키가 있어야 하며, 이 저장소의 테스트는 로컬 ffmpeg와 가짜 실행기만 쓴다.
+
+## 흡수한 검증 기능 (SceneWeaver)
+
+- `cineforge qa-playback <project> --file report.json`: 납품 파일 해시에 묶인 **사람 재생 검수 기록**. `reviewer_reported`로만 남고 게이트·승인을 바꾸지 않는다.
+- `cineforge skills`: 설치된 스킬팩의 실행 도구 8개를 찾아 해시를 확인한다. `deliver`는 이 핀을 `delivery.json.skills`에 기록한다. **스킬팩을 제거하면 이 핀이 비므로, CineForge는 `contents-production-skills` 설치를 전제로 한다** (경로 재정의: `CINEFORGE_SKILL_PACK`).
+- 전체 대기·복구·영수증 규칙은 [제작 완결 설계](docs/superpowers/specs/2026-11-20-production-closure-design.md)를 따른다.
+
+## 사운드 디자인과 MCP
+
+S07은 `assets/sound_plan.json`을 씁니다. 큐마다 담당 MCP·도구·프롬프트·루프·AI 표시가 붙습니다: BGM·OST는 **공식 Suno MCP**(`https://api.suno.com/mcp`, OAuth, 도구명은 연결 후 확정), 효과음·공간음은 ElevenLabs(`elevenlabs_sound_effect`), 대사는 Fish Audio(`fish_audio_tts`, TypeCast 대체)입니다. 이 파일은 생성 인계이며 음원 생성 자체는 아직 실행하지 않습니다.
+
+```bash
+cineforge setup                                   # 네 서버 준비 상태 확인(다른 에이전트 설치 포함)
+cineforge setup --discover                        # Codex/Claude/Gemini/OpenCode MCP 읽기(읽기 전용)
+cineforge setup --import-mcp                      # 지금 즉시 기록(자동 동기화와 동일)
+cineforge setup --no-sync                         # 자동 갱신 없이 상태만 확인
+cineforge mcp-sync start --interval 5             # 백그라운드 감시 시작
+cineforge mcp-sync status                         # 실행 여부·마지막 동기화
+cineforge mcp-sync stop                           # 중지
+cineforge setup --apply suno --recipe "suno=npx -y <suno-mcp-package>" --yes
+cineforge setup --set-key elevenlabs              # 숨김 입력
+cineforge setup --remove-key suno
+```
+
+Suno는 공식 원격 MCP로 **OAuth 로그인**이 필요하다(API 키 없음, Suno 크레딧 사용). Pi에서는 `/mcp login suno`(또는 `pi mcp login suno`)로 승인한다. 다른 키는 호스트 환경변수 또는 `~/.config/cineforge/credentials.json`(0600)에만 저장하고 프로젝트·프롬프트·로그에 남기지 않습니다. 설치는 `--yes`와 서버별 실제 설치 명령(`--recipe`)이 모두 있어야 실행하며, 명령을 모르면 추측해서 만들지 않고 거부합니다. 다른 에이전트에 이미 설치된 MCP는 `--discover`/`--import-mcp`로 읽어 재사용하며, 외부 설정을 수정하거나 비밀 값을 복사하지 않고 환경변수 이름만 기록합니다. `setup`은 실행할 때마다 **자동 동기화**합니다 — 새 MCP 추가, 명령·URL 변경 갱신, 사라진 항목 제거, 충돌은 선택/대안으로 기록. 백그라운드 감시가 필요하면 `cineforge mcp-sync start`를 쓴다. 감시자는 외부 설정을 읽기만 하고 `~/.config/cineforge` 아래 캐시·상태·로그만 쓴다(비밀 값 복사 없음, PID 잠금, SIGTERM 종료). MCP 도구가 Pi/Codex 세션에 실제로 노출되는지는 호스트 설정이 결정합니다.
+
+## 이미지 자동 제작 (Linux)
+
+새 프로젝트는 기본 논스톱입니다. 수동 검토는 `--no-nonstop`. 기획을 먼저 실행한 뒤 `cineforge run <project> --image-limit N`으로 작품 누적 이미지 호출 수와 참조 전송을 승인하거나, 처음부터 `new`에 같은 옵션을 줍니다. N은 동시 실행 수가 아닙니다(동시 실행 최대 5). 스킬 정책상 Codex Imagen 정지 이미지는 유료 견적·비용 상한 대상이 아니므로, 이 값은 실행 범위와 참조 전송 범위를 제한하는 장치입니다. 비용·원격 작업이 불확실하면 자동 재제출하지 않습니다.
+
+```mermaid
+flowchart TD
+  A[영상 요청] --> B[기획 · 대본 · 캐릭터 · 컷 구성]
+  B --> C[연속성 · 권리 · 제약 검사]
+  C --> D[이미지 목록과 참조 관계 작성]
+  D --> E{사용 가능한 이미지인가?}
+  E -->|등록된 자료 또는 동일 해시 결과| F[재사용]
+  E -->|없음| G{실행 범위 --image-limit 지정?}
+  G -->|예| H[Codex Imagen 독립 세션 최대 5개]
+  G -->|아니오| I[작업 수 안내 · 승인 대기]
+  H --> J[결과 경로와 해시 기록]
+  F --> K[참조 준비된 컷의 시작·끝 프레임]
+  J --> K
+  K --> L[영상·음성 생성 담당에 인계]
+  L --> M[외부 실행 결과 수신 → 편집 · QA · 최종 검수]
+```
+
+제공 이미지는 프로젝트 아래에 두고 `assets/supplied_images.json`에 `{"프롬프트ID":"상대경로"}`로 명시합니다. 큐는 감독 CLI가 떠 있는 동안 독립 프로세스 세션으로 실행되며 GUI 창이나 상시 데몬이 아닙니다. 산출물 목록은 `assets/image_outputs.json`, 작업별 기록은 `assets/image_jobs/`입니다. 영상·음성·편집은 기존 외부 인계이며 이 큐가 대신 실행하지 않습니다.
+
 ## 빠른 시작
 
 ### 설치
@@ -170,6 +300,13 @@ S12 성과 피드백                ⤼ skipped         0/2    -     topic-deman
 
 키는 환경변수로만 받고 파일·로그·명령 인자에 남기지 않습니다.
 
+### 로컬 검증·복구 (SceneWeaver 이식)
+
+- 외부 작업 대기 상태에서만 최초 완료를 기록합니다. `--evidence`에는 프로젝트 내부 실제 파일을 지정하세요. 목록 파일을 지정하면 목록 자체만 검증하므로 원본 테이크/편집본도 각각 명시해야 합니다.
+- 완료 시 입력·출력 SHA-256을 `receipts/<단계>.json`에 먼저 저장합니다. 상태 기록 전 중단됐다면 `cineforge run`으로 복구합니다. 해시 불일치 또는 기존 완료 단계에 영수증이 없으면 자동 인정하지 않습니다. 영수증은 시청 판정이나 원격 작업 접수증이 아닙니다.
+- 출연진은 프로젝트마다 지정합니다. `--with-dialogue`와 `--no-speech`는 인물 이름과 무관한 작품별 옵션입니다.
+- Pi 서명 모드는 선택 사항입니다. 실행기와 Pi 서명 프로세스에만 프로젝트 밖의 32바이트 이상 비밀 파일 경로 `CINEFORGE_HOST_KEY_FILE`을 지정하세요. `--provider host`로 요청한 뒤 같은 환경에서 `python -m cineforge.host_sign REQUEST.json BODY.json`으로 응답을 작성하고 `cineforge run`으로 이어갑니다. 비밀 파일을 저장소나 프롬프트에 넣지 마세요. 기존 무서명 모드는 호환용이며 서명된 요청에 대체 사용할 수 없습니다. 제안은 실행 권한이 아닙니다.
+
 ### 호스트 AI 모드
 
 `--provider host`이면 CineForge가 `agent_io/requests/*.json`에 질문을 쓰고 멈춥니다. 에이전트가 `agent_io/responses/*.json`에 같은 형식으로 답을 쓰면 `cineforge run`으로 이어집니다.
@@ -189,7 +326,7 @@ CineForge는 [contents-production-skills](https://github.com/DeclanJeon/contents
 - 테스트와 기본 실행은 네트워크를 쓰지 않습니다. 실호출 테스트는 `CINEFORGE_LIVE=1`일 때만 돕니다.
 - 레퍼런스·드라마 각색은 구조·리듬·장르 문법만 참고합니다. 원본 영상·음악·대사는 재사용하지 않고, 원작 캐릭터도 복제하지 않습니다.
 - AI 생성 콘텐츠는 게시할 때 플랫폼의 AI 표시 기능과 해시태그로 공개합니다. 영상 안에 'Made with AI' 코너 라벨은 넣지 않습니다.
-- AI 페르소나(한서윤) 콘텐츠는 AI임을 숨기지 않고, 영상에 대사를 넣지 않습니다.
+- AI 페르소나 콘텐츠는 AI임을 숨기지 않습니다. 이 표시 규칙은 대사 유무와 별개입니다.
 - 게시·전송·결제·OAuth·푸시 같은 외부 행동은 CineForge 범위 밖이며, 사용자 승인 없이는 하지 않습니다.
 
 ## 로드맵
