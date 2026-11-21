@@ -32,6 +32,43 @@ def test_cli_generates_images_without_authorizing_video(tmp_path, monkeypatch):
     p.run()
     assert len(calls)==count
 
+def test_scoped_video_plan_prepares_approved_images_before_video_envelope(tmp_path, monkeypatch):
+    from cineforge import execution_plan, image_queue
+    from cineforge.video_jobs import plan_jobs
+
+    calls = []
+
+    def local(row, refs, output, *, supervisor_fd):
+        assert all(ref.is_file() for ref in refs)
+        calls.append(row['prompt_id'])
+        output.write_bytes(PNG)
+
+    monkeypatch.setattr(image_queue, 'codex_imagen', local)
+    assert main(['new', SAMPLE_REQUEST, '--projects-dir', str(tmp_path), '--project-id', 'p',
+                 '--provider', 'mock', '--until', 'G2_preproduction_review']) == 0
+    project = Project(tmp_path / 'p')
+    plan = execution_plan.proposal(project, {'lanes': [
+        {'kind': 'video_cut', 'provider': 'ludyte', 'model': 'singularity-full-v2', 'max_jobs': 100},
+    ]})
+    count = len(project.read('assets/image_prompts.json')['prompts'])
+    project.grant(image_limit=count - 1)
+    project.run(until='S08_generation')
+    assert not calls
+    execution_plan.approve(project, plan['plan_hash'], 1)
+    project.run(until='S08_generation')
+    assert project.progress()['stages']['S08_generation']['status'] == 'blocked'
+    assert not calls
+    project.grant(image_limit=count)
+    project.set_stage(project.progress(), 'S08_generation', 'waiting_external', 'old scoped handoff')
+    project.run(until='S08_generation')
+    assert len(calls) == count
+    assert project.progress()['stages']['S08_generation']['status'] == 'waiting_external'
+    assert plan_jobs(project.root)
+    assert not (project.root / 'handoffs/S08_generation.json').exists()
+    project.run(until='S08_generation')
+    assert len(calls) == count
+
+
 def test_dependency_queue_cap_reuse_and_uncertainty(tmp_path):
     from cineforge.image_queue import generate
     active = peak = 0

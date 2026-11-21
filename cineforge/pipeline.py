@@ -180,7 +180,13 @@ class Project:
                     self.complete(sid, list(receipt["outputs"]))
                     prog = self.progress()
                 elif status == "waiting_external":
-                    return prog
+                    from .execution_plan import read as read_execution_plan
+
+                    # Recover projects that entered scoped S08 before image preparation.
+                    scoped = read_execution_plan(self.root) if sid == "S08_generation" else None
+                    if (not scoped or 'video_cut' not in scoped['lanes']
+                            or self.read('assets/image_outputs.json') is not None):
+                        return prog
             if prog["stages"][sid]["status"] in ("done", "skipped"):
                 continue
             runner = runners.get(sid)
@@ -417,6 +423,12 @@ class Project:
             self.set_stage(prog, "G2_preproduction_review", "blocked", "검수 오류 → reviews/preproduction_review.json 확인 후 수정", tasks_done=tasks, qa_report=review)
             return False
         auth = self.authority()
+        from .phase_review import review as phase_review
+        try:
+            phase_review(self.root, 'pre')
+        except ValueError as exc:
+            self.set_stage(prog, 'G2_preproduction_review', 'waiting_agent', str(exc))
+            return False
         if not (auth["accept_preproduction"] or auth["accept_plan"] and "nonstop" in auth.get("notes", [])):
             self.set_stage(prog, "G2_preproduction_review", "waiting_user", "`cineforge accept <프로젝트> preproduction`", tasks_done=tasks, qa_report=review)
             return False
@@ -430,28 +442,30 @@ class Project:
         if sid == "S08_generation":
             from . import execution_plan
 
-            if (plan := execution_plan.read(self.root)) is not None:
-                # The legacy handoff is broad and cannot represent lane/model/quote scope.
+            plan = execution_plan.read(self.root)
+            if plan is not None:
                 try:
                     execution_plan.approved(self.root, plan)
                 except ValueError as exc:
                     self.set_stage(prog, sid, "blocked", str(exc))
-                else:
-                    self.set_stage(prog, sid, "waiting_external",
-                                   "실행 계획 범위 확인 → cineforge execute --preview / execute --stage S08_audio 또는 S08_video")
-                return False
+                    return False
+                if 'video_cut' not in plan['lanes']:
+                    self.set_stage(prog, sid, "waiting_external", "cineforge execute --stage S08_audio")
+                    return False
             extra["cost_plan"] = (self.read("reviews/preproduction_review.json") or {}).get("summary", {}).get("cost_plan")
             extra["prompts"] = ["assets/image_prompts.json", "assets/video_prompts.json", "assets/frames.json"]
             rows = self.read("assets/image_prompts.json")["prompts"]
             extra["image_engine"] = "codex-imagen"
             extra["image_job_count"] = len(rows)
             limit = self.authority().get("image_limit")
-            if limit is None and "nonstop" in self.authority().get("notes", []) and not self.authority().get("execution"):
-                self._handoff(sid, extra)
+            if limit is None and (plan is not None or ("nonstop" in self.authority().get("notes", []) and not self.authority().get("execution"))):
+                if plan is None:
+                    self._handoff(sid, extra)
                 self.set_stage(prog, sid, "blocked", f"이미지 작업 {len(rows)}개 계획. 실행 범위 상한: cineforge run <project> --image-limit N (Codex Imagen 정지 이미지는 유료 견적 대상 아님); 영상 execution 권한은 별도")
                 return False
             if limit is not None and len(rows) > limit:
-                self._handoff(sid, extra)
+                if plan is None:
+                    self._handoff(sid, extra)
                 self.set_stage(prog, sid, "blocked", f"이미지 작업 {len(rows)}개 > 승인 상한 {limit}개 — --image-limit {len(rows)} 이상으로 승인해야 합니다")
                 return False
             if limit is not None:
@@ -465,6 +479,11 @@ class Project:
                         row.update(status="available", path=images[row["asset_id"]], sha256=pins(self.root, [images[row["asset_id"]]])[images[row["asset_id"]]])
                 self.write("assets/asset_registry.json", registry, "asset_registry")
                 extra["images"] = images
+            if plan is not None:
+                # Never emit the broad legacy handoff for a lane-bound approval.
+                self.set_stage(prog, sid, "waiting_external",
+                               "실행 계획 범위 확인 → cineforge execute --preview / execute --stage S08_audio 또는 S08_video")
+                return False
         packet = self._handoff(sid, extra)
         if stage.get("requires_authority") and not packet["authority_granted"]:
             self.set_stage(prog, sid, "blocked", f"'{stage['requires_authority']}' 권한 필요 → `cineforge grant <프로젝트> {stage['requires_authority']}`"

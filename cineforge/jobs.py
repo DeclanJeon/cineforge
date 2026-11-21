@@ -62,6 +62,12 @@ def _job(project: Path, *, job_id: str, kind: str, inputs: list[str], prompt: st
         provider = lane['provider']
         tool = 'generate_video' if provider == 'higgsfield' else tool
         params = {**params, 'model': lane['model']}
+        if kind == 'video_cut' and provider == 'ludyte' and lane['model'] == 'singularity-full-v2':
+            edit_seconds = float(params['duration_s'])
+            if edit_seconds < 5:
+                prompt = prompt.replace(f'길이 {params["duration_s"]}초.', '원본 길이 5초.')
+                prompt += f' 원본 5초 안에 편집용 {edit_seconds:g}초 행동 구간을 확보한다.'
+                params = {**params, 'duration_s': 5, 'edit_duration_s': edit_seconds}
     spec = {'job_id': job_id, 'kind': kind, 'provider': provider, 'tool': tool,
             'inputs': pins, 'prompt': prompt, 'params': params, 'depends_on': depends_on}
     key = hashlib.sha256(json.dumps([binding(project), spec], sort_keys=True).encode()).hexdigest()
@@ -180,6 +186,10 @@ def write_envelope(project: Path, stage: str, jobs: tuple[Job, ...], *, note: st
         _check_quotes(plan, jobs, {} if quotes is None else quotes)
         scope = {'execution_plan_hash': approval['plan_hash'], 'expires_at': approval['expires_at'],
                  'lanes': plan['lanes'], 'quotes': quotes or {}}
+    if stage == 'S08_video':
+        from dataclasses import asdict
+        from .phase_review import review
+        review(project, 'prompt', [asdict(job) for job in jobs])
     payload = {'schema_version': 1, 'stage': stage, 'binding': binding(project),
                'project_root': str(project.resolve()), 'note': note,
                'authority': scope,

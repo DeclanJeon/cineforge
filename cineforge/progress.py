@@ -81,6 +81,16 @@ def blockers(progress: dict[str, Any]) -> list[str]:
             if stage["status"] in ("blocked", "failed")]
 
 
+def production_phase(stage):
+    if not stage:
+        return 'complete'
+    if stage.startswith('S12'):
+        return 'feedback'
+    if stage.startswith(('S09', 'S10', 'S11', 'G3')):
+        return 'postproduction'
+    return 'production' if stage.startswith('S08') else 'preproduction'
+
+
 def snapshot(root) -> dict[str, Any]:
     """One agent-readable view of the project; same facts the panel prints."""
     import json
@@ -100,7 +110,7 @@ def snapshot(root) -> dict[str, Any]:
                        "total": len(tasks), "qa": (stage.get("qa") or {}).get("status"),
                        "note": stage.get("note"), "skills": list(names.get(sid, {}).get("skills", []))}
     return {"schema_version": 1, "project_id": progress["project_id"], "project_root": str(base.resolve()),
-            "current_stage": progress.get("current_stage"), "progress_rate": progress_rate,
+            "current_stage": progress.get("current_stage"), "phase": production_phase(progress.get("current_stage")), "progress_rate": progress_rate,
             "task_rate": task_rate, "updated_at": progress.get("updated_at"), "next_action": next_action(progress, pipeline),
             "blocked": blockers(progress), "stages": stages}
 
