@@ -74,6 +74,61 @@ def test_motion_request_reaches_craft_handoffs(tmp_path):
         assert not p.authority()['execution']
 
 
+@pytest.mark.parametrize("revision", [False, True])
+def test_cut_revision_handoff_is_opt_in(tmp_path: Path, revision: bool) -> None:
+    scope = "C07 원본 v2 2.10–2.65초"
+    preserve = "인물·의상·카메라"
+    args = ["new", SAMPLE_REQUEST + " 모션 그래픽", "--projects-dir", str(tmp_path),
+            "--project-id", "p", "--provider", "mock"]
+    if revision:
+        args += ["--cut-revision", f" {scope} ", f" {preserve} "]
+    assert main(args) == 0
+    project = Project(tmp_path / "p")
+    assert not project.authority()["execution"]
+    assert not project.read("handoffs/S08_generation.json")["authority_granted"]
+
+    # Advance using local evidence files only; no provider or media calls.
+    project.grant(execution=True, edit=True)
+    for stage in ("S08_generation", "S09_edit", "S10_qa"):
+        project.run()
+        evidence = project.root / f"{stage}.txt"
+        evidence.write_text(stage, encoding="utf-8")
+        project.complete(stage, [str(evidence)])
+
+    project.accept("final")
+    project.run()
+    qa_ref = "video-production-assets/references/21-generated-video-qa-retry.md"
+    motion_ref = "video-production-assets/references/08b-code-motion-production.md"
+    for stage in ("S06_storyboard", "S07_assets", "S08_generation", "S09_edit", "S10_qa"):
+        packet = project.read(f"handoffs/{stage}.json")
+        assert motion_ref in packet["craft_refs"]
+        assert (qa_ref in packet["craft_refs"]) is revision
+        assert packet.get("cut_revision") == ({"scope": scope, "preserve": preserve} if revision else None)
+        if stage in ("S08_generation", "S09_edit", "S10_qa"):
+            receipt = project.read(f"receipts/{stage}.json")
+            assert ("project.json" in receipt["inputs"]) is revision
+    assert "cut_revision" not in project.read("handoffs/S11_delivery.json")
+
+
+@pytest.mark.parametrize("scope,preserve", [(" ", "camera"), ("C07", " ")])
+def test_cut_revision_rejects_blank_fields(tmp_path: Path, scope: str, preserve: str) -> None:
+    assert main(["new", SAMPLE_REQUEST, "--projects-dir", str(tmp_path), "--project-id", "p",
+                 "--provider", "mock", "--cut-revision", scope, preserve]) == 2
+    assert not (tmp_path / "p").exists()
+
+
+@pytest.mark.parametrize("revision", [(" \t", "camera"), ("C07", " \n")])
+def test_project_create_rejects_blank_cut_revision(tmp_path: Path, revision: tuple[str, str]) -> None:
+    with pytest.raises(ValueError, match="수정 범위와 보존 조건"):
+        Project.create(tmp_path, SAMPLE_REQUEST, "mock", "p", cut_revision=revision)
+    assert not (tmp_path / "p").exists()
+
+
+def test_project_create_trims_cut_revision(tmp_path: Path) -> None:
+    project = Project.create(tmp_path, SAMPLE_REQUEST, "mock", "p", cut_revision=(" C07 ", " camera "))
+    assert project.meta["cut_revision"] == {"scope": "C07", "preserve": "camera"}
+
+
 def test_delegated_topic_carries_plan_choice_without_craft_keyword(tmp_path, monkeypatch):
     from cineforge import pipeline
 

@@ -10,7 +10,7 @@ from typing import Any
 
 from cineforge import __version__
 from cineforge.data_loader import data_path, load
-from cineforge.pipeline import Project
+from cineforge.pipeline import InvalidCutRevisionError, Project
 from cineforge.progress import render
 from cineforge.providers.router import MODES, build_router
 from cineforge.selection import interactive, merge, new_selection, parse_set_flags, summarize, load_json
@@ -79,7 +79,16 @@ def cmd_new(args: argparse.Namespace) -> int:
         inputs["with_dialogue"] = True
     if args.no_speech:
         inputs["no_speech"] = True
-    project = Project.create(Path(args.projects_dir), request, args.provider, args.project_id, inputs=inputs)
+    cut_revision = None
+    if args.cut_revision is not None:
+        scope, preserve = args.cut_revision
+        cut_revision = (scope, preserve)
+    try:
+        project = Project.create(Path(args.projects_dir), request, args.provider, args.project_id,
+                                 inputs=inputs, cut_revision=cut_revision)
+    except InvalidCutRevisionError as exc:
+        print(f"--cut-revision: {exc}", file=sys.stderr)
+        return 2
     print(f"프로젝트: {project.root}")
     if args.nonstop:
         project.grant(accept_plan=True, accept_preproduction=True, notes=["nonstop"])
@@ -556,6 +565,8 @@ def build_parser() -> argparse.ArgumentParser:
     n.add_argument("--reference", help="레퍼런스 URL 또는 설명")
     n.add_argument("--lead-character", help="주연 캐릭터 이름/파일")
     n.add_argument("--voice", help="목소리 방침")
+    n.add_argument("--cut-revision", nargs=2, metavar=("SCOPE", "PRESERVE"),
+                   help="컷 수정 범위와 보존 조건을 제작 단계에 인계(자동 실행·승인 아님)")
     speech = n.add_mutually_exclusive_group()
     speech.add_argument("--with-dialogue", action="store_true", help="극영화 대사 사용")
     speech.add_argument("--no-speech", action="store_true", help="대사·음성 없음(효과음·연출만)")
