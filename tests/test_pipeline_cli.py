@@ -148,7 +148,9 @@ def test_delegated_topic_carries_plan_choice_without_craft_keyword(tmp_path, mon
     p = Project(tmp_path / 'mbti')
     result = p.read('handoffs/S06_storyboard.json')
     assert result['motion_recipe']['recipe'] == 'ui_state'
-    assert 'creative-production/references/motion-selection.md' in result['craft_refs']
+    assert result['craft_refs'][0] == 'creative-production/references/motion-pipeline.md'
+    assert 'video-production-assets/assets/code-motion-brief-template.md' in result['craft_refs']
+    assert all('motion-selection' not in ref for ref in result['craft_refs'])
     assert '선택 → 답장' in p.read('ssot/scene.json')['data']['cuts'][0]['visual']
     assert not p.authority()['execution']
 

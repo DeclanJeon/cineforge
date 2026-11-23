@@ -342,10 +342,13 @@ class Project:
             motion = re.search(r'모션\s*그래픽|키네틱\s*타이포|(?:제품\s*)?ui\s*데모|motion\s+graphics?|kinetic\s+type|ui\s+demo|(?:motion\s+design|code[- ]rendered)\s+showreel', request, re.I)
             choice = (self.read('plan.json') or {}).get('production_spec', {}).get('motion_recipe')
             if motion or realtime or choice:
-                packet['craft_refs'] = ['video-production-assets/references/08b-code-motion-production.md']
+                packet['craft_refs'] = ['creative-production/references/motion-pipeline.md',
+                                        'video-production-assets/references/08b-code-motion-production.md',
+                                        'video-production-assets/assets/code-motion-brief-template.md']
                 if choice:
                     packet['motion_recipe'] = choice
-                    packet['craft_refs'].insert(0, 'creative-production/references/motion-selection.md')
+                if brief := (self.read('plan.json') or {}).get('production_spec', {}).get('motion_brief'):
+                    packet['motion_brief'] = brief
                 if realtime or (choice and choice['recipe'] == 'realtime_3d'):
                     packet['craft_refs'].append('open-3d-production/references/realtime-motion-direction.md')
                 packet['craft_instruction'] = ('현재 단계 작업 전에 craft_refs와 해당 오너 지침을 읽고 컷 상태·타이밍·실제 출력 검수에 반영. '

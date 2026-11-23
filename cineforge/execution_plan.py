@@ -33,6 +33,24 @@ def read(root: Path) -> dict[str, Any] | None:
     return json.loads(path.read_text(encoding='utf-8')) if path.is_file() else None
 
 
+def code_motion_cuts(project: Path, lane: dict[str, Any]) -> set[str]:
+    scene = json.loads((project / 'ssot/scene.json').read_text(encoding='utf-8'))
+    known = {row['cut_id'] for row in scene['data']['cuts']}
+    if 'cut_ids' in lane:
+        cuts = lane['cut_ids']
+        if (not isinstance(cuts, list) or not cuts or any(not isinstance(cut, str) or cut not in known for cut in cuts)
+                or len(set(cuts)) != len(cuts)):
+            raise ValueError('invalid_code_motion_cut_ids')
+        selected = set(cuts)
+    else:
+        selected = known
+    plan = json.loads((project / 'plan.json').read_text(encoding='utf-8'))
+    brief = plan['production_spec'].get('motion_brief')
+    if brief and selected != {row['cut'] for row in brief['route_by_cut'] if row['route'] == 'code'}:
+        raise ValueError('code_motion_cut_scope_mismatch')
+    return selected
+
+
 def proposal(project: Any, data: Any) -> dict[str, Any]:
     from .jobs import PROVIDER_OF
 
@@ -44,18 +62,24 @@ def proposal(project: Any, data: Any) -> dict[str, Any]:
             raise ValueError('invalid_execution_lane')
         kind, provider, model, count = (row.get(key) for key in ('kind', 'provider', 'model', 'max_jobs'))
         if (not isinstance(kind, str) or kind == 'image' or kind not in PROVIDER_OF or kind in lanes
-                or (provider != PROVIDER_OF[kind] and (kind, provider) != ('video_cut', 'higgsfield'))
+                or (provider != PROVIDER_OF[kind] and (kind, provider) not in (('video_cut', 'higgsfield'), ('video_cut', 'code-motion')))
                 or not isinstance(model, str) or not model.strip() or type(count) is not int or count <= 0):
             raise ValueError('invalid_execution_lane')
         fields = {'kind', 'provider', 'model', 'max_jobs'}
-        if (kind, provider) != ('video_cut', 'ludyte'):
+        if (kind, provider) not in (('video_cut', 'ludyte'), ('video_cut', 'code-motion')):
             fields |= {'unit', 'estimate', 'ceiling'}
             if not isinstance(row.get('unit'), str) or not row['unit'].strip() or not 0 < amount(row.get('ceiling')):
                 raise ValueError('execution_ceiling_required')
             if row.get('estimate') is not None and amount(row['estimate']) > amount(row['ceiling']):
                 raise ValueError('execution_ceiling_exceeded')
+        if provider == 'code-motion' and 'cut_ids' in row:
+            fields.add('cut_ids')
         if set(row) != fields:
             raise ValueError('invalid_execution_lane_fields')
+        if provider == 'code-motion':
+            if model != 'html-seek-v1':
+                raise ValueError('invalid_code_motion_model')
+            code_motion_cuts(project.root, row)
         lanes[kind] = row
     plan = {'schema_version': 1, 'project_id': project.read('project.json')['project_id'], 'lanes': lanes}
     if plan != read(project.root):

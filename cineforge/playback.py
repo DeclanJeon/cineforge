@@ -29,8 +29,14 @@ def _delivery(project: Path) -> dict[str, Any]:
     return json.loads(path.read_text(encoding='utf-8'))
 
 
-def submit(project: Path, report: dict[str, Any]) -> Path:
-    delivery = _delivery(project)
+def submit(project: Path, report: dict[str, Any], *, rendered: bool = False) -> Path:
+    if rendered:
+        preview = project / 'edit/render.mp4'
+        if not preview.is_file():
+            raise PlaybackError('render_missing')
+        delivery = {'video': 'edit/render.mp4', 'sha256': _sha(preview)}
+    else:
+        delivery = _delivery(project)
     video = project / str(delivery['video'])
     if not video.is_file():
         raise PlaybackError('delivered_file_missing')
@@ -48,7 +54,7 @@ def submit(project: Path, report: dict[str, Any]) -> Path:
                'report': {key: report[key] for key in ('reviewer', 'verdict', 'observations',
                                                        'watched_entire_video', 'heard_entire_audio')}}
     digest = hashlib.sha256(json.dumps(payload, sort_keys=True).encode()).hexdigest()
-    target = project / 'qa' / f'playback-{digest[:16]}.json'
+    target = project / 'qa' / ('render-playback.json' if rendered else f'playback-{digest[:16]}.json')
     target.parent.mkdir(parents=True, exist_ok=True)
     target.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding='utf-8')
     return target

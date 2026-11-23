@@ -504,6 +504,128 @@
             "recipe",
             "reason"
           ]
+        },
+        "motion_brief": {
+          "type": "object",
+          "properties": {
+            "analysis": {
+              "type": "object",
+              "required": [
+                "audience_task",
+                "message_units",
+                "format_hint",
+                "platform",
+                "duration",
+                "assets",
+                "data_sources",
+                "audio",
+                "brand",
+                "constraints",
+                "delivery"
+              ]
+            },
+            "candidates": {
+              "type": "array",
+              "minItems": 1,
+              "items": {
+                "type": "object",
+                "required": [
+                  "format",
+                  "recipe",
+                  "reason"
+                ],
+                "properties": {
+                  "format": {
+                    "enum": [
+                      "showreel",
+                      "product_film",
+                      "explainer",
+                      "character_short",
+                      "realtime_3d",
+                      "logo_bumper",
+                      "edit_assist",
+                      "other"
+                    ]
+                  },
+                  "recipe": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "reason": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "scores": {
+                    "type": "object"
+                  }
+                }
+              }
+            },
+            "choice": {
+              "type": "object",
+              "required": [
+                "format",
+                "recipe",
+                "reason"
+              ],
+              "properties": {
+                "format": {
+                  "enum": [
+                    "showreel",
+                    "product_film",
+                    "explainer",
+                    "character_short",
+                    "realtime_3d",
+                    "logo_bumper",
+                    "edit_assist",
+                    "other"
+                  ]
+                },
+                "recipe": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "reason": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              }
+            },
+            "route_by_cut": {
+              "type": "array",
+              "minItems": 1,
+              "items": {
+                "type": "object",
+                "required": [
+                  "cut",
+                  "route"
+                ],
+                "properties": {
+                  "cut": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "route": {
+                    "enum": [
+                      "local",
+                      "code",
+                      "realtime_3d",
+                      "downgrade"
+                    ]
+                  },
+                  "downgrade": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          },
+          "required": [
+            "analysis",
+            "candidates",
+            "choice",
+            "route_by_cut"
+          ]
         }
       },
       "required": [

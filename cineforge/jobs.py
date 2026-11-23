@@ -60,7 +60,7 @@ def _job(project: Path, *, job_id: str, kind: str, inputs: list[str], prompt: st
     provider, tool = PROVIDER_OF[kind], TOOL_OF[kind]
     if lane:
         provider = lane['provider']
-        tool = 'generate_video' if provider == 'higgsfield' else tool
+        tool = {'higgsfield': 'generate_video', 'code-motion': 'render_html_motion'}.get(provider, tool)
         params = {**params, 'model': lane['model']}
         if kind == 'video_cut' and provider == 'ludyte' and lane['model'] == 'singularity-full-v2':
             edit_seconds = float(params['duration_s'])
@@ -94,8 +94,15 @@ def video_jobs(project: Path) -> tuple[Job, ...]:
     assets = {row['asset_id']: row for row in json.loads((project / 'assets/asset_registry.json').read_text(encoding='utf-8'))['assets']}
     outputs_path = project / 'assets/image_outputs.json'
     outputs = json.loads(outputs_path.read_text(encoding='utf-8')) if outputs_path.is_file() else {}
+    plan = execution_plan.read(project) or {}
+    lane = plan.get('lanes', {}).get('video_cut', {})
+    selected = execution_plan.code_motion_cuts(project, lane) if lane.get('provider') == 'code-motion' else None
+    if selected is not None and not selected <= {row['cut_id'] for row in prompts}:
+        raise JobError('code_motion_cut_prompt_missing')
     jobs = []
     for row in prompts:
+        if selected is not None and row['cut_id'] not in selected:
+            continue
         paths, missing = [], []
         for ref in row['refs']:
             candidate = outputs.get(ref) or (assets[ref]['path'] if ref in assets else None)
@@ -143,6 +150,11 @@ def _check_scope(project: Path, jobs: tuple[Job, ...], plan: dict[str, Any]) -> 
     except ValueError as exc:
         raise JobError(str(exc)) from exc
     counts: dict[str, int] = {}
+    video_lane = plan['lanes'].get('video_cut', {})
+    selected = (execution_plan.code_motion_cuts(project, video_lane)
+                if video_lane.get('provider') == 'code-motion' and any(job.kind == 'video_cut' for job in jobs) else None)
+    if selected is not None and {job.job_id for job in jobs if job.kind == 'video_cut'} != {f'video:{cut}' for cut in selected}:
+        raise JobError('execution_scope_changed: code-motion cuts')
     for job in jobs:
         lane = plan['lanes'].get(job.kind)
         counts[job.kind] = counts.get(job.kind, 0) + 1
@@ -235,16 +247,26 @@ def record_results(project: Path, stage: str, results: list[dict[str, Any]], *, 
             raise JobError(f'invalid_result: {job_id}')
         previous = receipt['results'].get(job_id)
         if status == 'accepted':
-            output = project / str(item.get('path') or '')
+            relative = Path(str(item.get('path') or ''))
+            output = project / relative
+            is_code_motion = known[job_id]['provider'] == 'code-motion'
+            if is_code_motion and (relative.is_absolute() or '..' in relative.parts
+                                   or not output.resolve().is_relative_to(project.resolve())):
+                raise JobError(f'code_motion_output_path: {job_id}')
             if not output.is_file():
                 raise JobError(f'output_missing: {job_id}')
             digest = _sha(output)
             if previous and previous['status'] == 'accepted':
-                if previous.get('sha256') != digest:
+                if previous.get('sha256') != digest or (is_code_motion and previous.get('path') != str(relative)):
                     raise JobError(f'receipt_conflict: {job_id}')
                 continue
             if previous:
                 raise JobError(f'receipt_conflict: {job_id}')
+            if is_code_motion:
+                from .video_jobs import check_code_motion_output
+                check_code_motion_output(output, known[job_id]['params'])
+                if _sha(output) != digest:
+                    raise JobError(f'code_motion_output_changed: {job_id}')
             receipt['results'][job_id] = {'status': 'accepted', 'path': str(output.relative_to(project)),
                                           'sha256': digest, 'provider_meta': item.get('provider_meta', runner_meta)}
         else:

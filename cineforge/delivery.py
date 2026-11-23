@@ -7,6 +7,7 @@ from pathlib import Path
 import shutil
 from typing import Any
 
+from . import execution_plan
 from .edit_plan import build as build_plan
 from .final_qa import inspect
 from .gate import check as gate_check
@@ -33,6 +34,16 @@ def deliver(project: Path, *, video: Path | None = None, burn: bool = False) -> 
     source = video or project / 'edit/render.mp4'
     if not source.is_file():
         raise DeliveryError('render_missing')
+    scope = execution_plan.read(project) or {}
+    code_motion = scope.get('lanes', {}).get('video_cut', {}).get('provider') == 'code-motion'
+    reviewed_sha = None
+    if code_motion:
+        record = project / 'qa/render-playback.json'
+        playback = json.loads(record.read_text(encoding='utf-8')) if record.is_file() else {}
+        reviewed_sha = _sha(source)
+        if (playback.get('sha256') != reviewed_sha or playback.get('provenance') != 'reviewer_reported'
+                or playback.get('report', {}).get('verdict') not in ('pass', 'pass_with_notes')):
+            raise DeliveryError('code_motion_playback_required: qa-playback --rendered')
     report = inspect(project, source, plan=plan)
     if report['status'] != 'pass':
         failed = [row['id'] for row in report['checks'] if not row['ok']]
@@ -44,6 +55,9 @@ def deliver(project: Path, *, video: Path | None = None, burn: bool = False) -> 
     target.parent.mkdir(parents=True, exist_ok=True)
     temporary = target.with_suffix('.tmp')
     shutil.copyfile(source, temporary)
+    if reviewed_sha is not None and _sha(temporary) != reviewed_sha:
+        temporary.unlink()
+        raise DeliveryError('code_motion_render_changed_after_review')
     temporary.replace(target)
     final_srt = project / 'final' / f'{project.name}.srt'
     if srt.is_file():

@@ -311,6 +311,14 @@ def cmd_results(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_select_take(args: argparse.Namespace) -> int:
+    from cineforge.video_jobs import select_take
+
+    result = select_take(Path(args.project), args.cut, args.path, note=args.note)
+    print(json.dumps(result, ensure_ascii=False))
+    return 0
+
+
 def cmd_edit(args: argparse.Namespace) -> int:
     from cineforge.edit_plan import build, validate
 
@@ -450,7 +458,7 @@ def cmd_qa_playback(args: argparse.Namespace) -> int:
     from cineforge.playback import submit
 
     report = json.loads(Path(args.file).read_text(encoding="utf-8"))
-    path = submit(Path(args.project), report)
+    path = submit(Path(args.project), report, rendered=args.rendered)
     print(json.dumps({"record": str(path), "provenance": "reviewer_reported"}, ensure_ascii=False))
     return 0
 
@@ -637,6 +645,13 @@ def build_parser() -> argparse.ArgumentParser:
     qp = sub.add_parser("qa-playback", help="사람 재생 검수 기록(납품 해시 고정)")
     qp.add_argument("project")
     qp.add_argument("--file", required=True)
+    take = sub.add_parser('select-take', help='컷의 프로젝트 상대 동영상 파일 채택')
+    take.add_argument('project')
+    take.add_argument('--cut', required=True)
+    take.add_argument('--path', required=True)
+    take.add_argument('--note', default='')
+    take.set_defaults(func=cmd_select_take)
+    qp.add_argument('--rendered', action='store_true', help='납품 전 edit/render.mp4 재생 검수')
     qp.set_defaults(func=cmd_qa_playback)
 
     sk = sub.add_parser("skills", help="스킬팩 연결·핀 검사")

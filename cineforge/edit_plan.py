@@ -1,9 +1,13 @@
 """Deterministic edit plan from SSOT, adopted takes, audio registry and dialogue."""
 from __future__ import annotations
 
+import hashlib
 import json
 from pathlib import Path
 from typing import Any
+
+from . import execution_plan
+from .video_jobs import check_code_motion_take
 
 
 class EditError(ValueError):
@@ -27,11 +31,18 @@ def build(project: Path) -> dict[str, Any]:
     selection = _read(project / 'selection.json') or {}
     aspect = '9:16'
     runtime = max((float(cut['end']) for cut in scene), default=0.0)
+    scope = execution_plan.read(project) or {}
+    code_motion = scope.get('lanes', {}).get('video_cut', {}).get('provider') == 'code-motion'
     cuts = []
     for cut in scene:
         take = adopted.get(cut['cut_id'])
         if take is None:
             raise EditError(f'missing_take: {cut["cut_id"]}')
+        if code_motion:
+            output = project / take['path']
+            if not output.is_file():
+                raise EditError(f'file_missing: {cut["cut_id"]}')
+            check_code_motion_take(project, cut['cut_id'], output, hashlib.sha256(output.read_bytes()).hexdigest())
         if float(take['duration']) + 0.05 < float(cut['duration']):
             raise EditError(f'take_too_short: {cut["cut_id"]}')
         cuts.append({'cut_id': cut['cut_id'], 'take_id': take['take_id'], 'path': take['path'],
