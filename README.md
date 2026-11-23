@@ -340,7 +340,23 @@ S12 성과 피드백                ⤼ skipped         0/2    -     topic-deman
 
 ## 스킬 연동
 
-새 제작에는 CineForge 계약 v1을 선언하는 [contents-production-skills](https://github.com/DeclanJeon/contents-production-skills) 설치가 필요합니다. 팩 원본 또는 팩 설치기로 복사한 스킬 루트를 장착합니다.
+새 제작에는 CineForge 계약 v1을 선언하는 [contents-production-skills](https://github.com/DeclanJeon/contents-production-skills) 설치가 필요합니다.
+
+**릴리스로 설치·업데이트(권장).** 업데이트는 사용자가 직접 실행할 때만 일어납니다.
+
+```bash
+cineforge skills update --check     # 최신 릴리스와 변경 내용 확인(아무것도 쓰지 않음)
+cineforge skills update --yes       # 내려받기 → SHA-256 검증 → 버전별 폴더 설치 → 새 프로젝트의 기본 팩으로 지정
+cineforge skills list               # 설치된 버전과 활성 버전
+cineforge skills use 2.64           # 이미 설치한 다른 버전으로 전환
+```
+
+- 설치 위치: `${XDG_DATA_HOME:-~/.local/share}/cineforge/skill-packs/contents-production-skills-<버전>/`. 이전 버전 폴더는 지우지 않습니다.
+- 활성 버전: `${XDG_CONFIG_HOME:-~/.config}/cineforge/skill-pack.json`. 탐색 순서는 `CINEFORGE_SKILL_PACK` → 활성 버전 → 기본 스킬 루트입니다.
+- 진행 중인 프로젝트는 잠금된 팩 버전을 계속 씁니다. 활성 버전이 바뀌어도 저장된 버전 폴더에서 같은 팩을 찾습니다.
+- 버전별 변경 내용은 [CineForge 개발노트](https://cineforge-7ps.pages.dev/changelog/)에 있습니다.
+
+**저장소에서 직접 장착.** 팩 원본 또는 팩 설치기로 복사한 스킬 루트를 장착합니다.
 
 ```bash
 # 팩 저장소에서: 필요하면 임시 또는 버전별 루트에 복사 설치

@@ -517,6 +517,69 @@ def cmd_skills(args: argparse.Namespace) -> int:
     return 0 if report["available"] else 1
 
 
+def _emit(data: dict) -> None:
+    print(json.dumps(data, ensure_ascii=False, indent=2))
+
+
+def cmd_skills_list(args: argparse.Namespace) -> int:
+    from cineforge import skill_store
+
+    pointer = skill_store.read_pointer()
+    _emit({"active": pointer["version"] if pointer else None, "installed": skill_store.installed_versions()})
+    return 0
+
+
+def cmd_skills_update(args: argparse.Namespace) -> int:
+    """Explicit update: show what is new, install only after --yes or a typed confirmation."""
+    import sys
+
+    from cineforge import skill_store
+    from cineforge.skill_pack_manifest import SkillPackError
+
+    pointer = skill_store.read_pointer()
+    current = pointer["version"] if pointer else None
+    try:
+        info = skill_store.fetch_release(args.version)
+    except SkillPackError as exc:
+        _emit({"current": current, "error": str(exc)})
+        return 1
+    report = {"current": current, "latest": info.version, "update_available": info.version != current,
+              "notes": info.notes, "installed": None}
+    if args.check or not report["update_available"]:
+        _emit(report)
+        return 0
+    if not args.yes:
+        if not sys.stdin.isatty():
+            _emit({**report, "error": "설치하려면 --yes를 붙여 다시 실행하세요 (진행 중 프로젝트의 팩은 바뀌지 않습니다)."})
+            return 1
+        print(f"스킬팩 {current or '(없음)'} → {info.version}\n\n{info.notes}\n", file=sys.stderr)
+        answer = input(f"{info.version}을 설치하고 새 프로젝트의 기본 팩으로 쓸까요? [y/N] ").strip().lower()
+        if answer not in {"y", "yes"}:
+            _emit(report)
+            return 1
+    try:
+        root = skill_store.install(info)
+    except SkillPackError as exc:
+        _emit({**report, "error": str(exc)})
+        return 1
+    skill_store.write_pointer(info.version, root)
+    _emit({**report, "installed": info.version})
+    return 0
+
+
+def cmd_skills_use(args: argparse.Namespace) -> int:
+    from cineforge import skill_store
+
+    version = args.version.removeprefix("v")
+    if version not in skill_store.installed_versions():
+        _emit({"error": f"스킬팩 {version}이 설치되어 있지 않습니다. `cineforge skills update --version {version} --yes`로 설치하세요.",
+               "installed": skill_store.installed_versions()})
+        return 1
+    skill_store.write_pointer(version, skill_store.pack_dir(version))
+    _emit({"active": version, "root": str(skill_store.pack_dir(version))})
+    return 0
+
+
 def cmd_gate(args: argparse.Namespace) -> int:
     from cineforge.gate import check
 
@@ -719,9 +782,22 @@ def build_parser() -> argparse.ArgumentParser:
     qp.add_argument('--rendered', action='store_true', help='납품 전 edit/render.mp4 재생 검수')
     qp.set_defaults(func=cmd_qa_playback)
 
-    sk = sub.add_parser("skills", help="스킬팩 연결·핀 검사")
+    sk = sub.add_parser("skills", help="스킬팩 연결·핀 검사, 설치·업데이트")
     sk.add_argument("--root")
     sk.set_defaults(func=cmd_skills)
+    sk_sub = sk.add_subparsers(dest="skills_cmd")
+    skc = sk_sub.add_parser("check", help="설치된 스킬팩 검사(기본 동작)")
+    skc.add_argument("--root", default=argparse.SUPPRESS)
+    skc.set_defaults(func=cmd_skills)
+    sk_sub.add_parser("list", help="설치된 버전과 활성 버전").set_defaults(func=cmd_skills_list)
+    sku = sk_sub.add_parser("update", help="최신 스킬팩 확인·검증 설치(명시적 실행만)")
+    sku.add_argument("--version", help="설치할 버전(기본: 최신 릴리스)")
+    sku.add_argument("--check", action="store_true", help="확인만 하고 설치하지 않음")
+    sku.add_argument("--yes", action="store_true", help="확인 질문 없이 설치")
+    sku.set_defaults(func=cmd_skills_update)
+    skus = sk_sub.add_parser("use", help="새 프로젝트에 쓸 설치된 버전 선택")
+    skus.add_argument("version")
+    skus.set_defaults(func=cmd_skills_use)
 
     ex = sub.add_parser("execute", help="실행 봉투 생성(S08_audio/S08_video)")
     ex.add_argument("project")

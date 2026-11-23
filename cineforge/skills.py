@@ -24,13 +24,25 @@ def explicit_root() -> str | None:
     return os.environ.get('CINEFORGE_SKILL_PACK')
 
 
+def _host_candidates(expected: PackBinding | None) -> tuple[Path, ...]:
+    """Active pointer first; a pinned lookup also searches every stored version."""
+    from . import skill_store
+
+    pointer = skill_store.read_pointer()
+    active = (Path(pointer['root']).expanduser(),) if pointer else ()
+    if expected is None:
+        return active or DEFAULT_ROOTS
+    stored = tuple(skill_store.pack_dir(v) for v in skill_store.installed_versions())
+    return (*active, *DEFAULT_ROOTS, *stored)
+
+
 def discover(root: Path | None = None, *, expected: PackBinding | None = None) -> InstalledPack:
     override = explicit_root()
     if root is None and override is not None:
         if not override.strip():
             raise SkillPackError('invalid', 'CINEFORGE_SKILL_PACK is empty')
         root = Path(override).expanduser()
-    candidates = (root,) if root is not None else DEFAULT_ROOTS
+    candidates = (root,) if root is not None else _host_candidates(expected)
     installed: dict[tuple[str, str], InstalledPack] = {}
     failure = None
     for candidate in candidates:

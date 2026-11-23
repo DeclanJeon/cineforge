@@ -217,3 +217,31 @@ def test_pack_drift_stops_all_production_entrypoints(tmp_path, monkeypatch):
         with pytest.raises(SkillPackError, match='inventory hash mismatch'):
             operation()
     assert not (root / 'final').exists() and not (root / 'jobs').exists()
+
+
+def test_pointer_precedes_default_roots(tmp_path, monkeypatch):
+    from cineforge import skill_store, skills
+
+    a = make_skill_pack(tmp_path / 'a', 'alpha')
+    b = make_skill_pack(tmp_path / 'b', 'beta')
+    monkeypatch.delenv('CINEFORGE_SKILL_PACK')
+    monkeypatch.setattr(skills, 'DEFAULT_ROOTS', (b,))
+    assert check()['version'] == 'beta'
+    skill_store.write_pointer('alpha', a)
+    assert check()['version'] == 'alpha'
+    monkeypatch.setenv('CINEFORGE_SKILL_PACK', str(b))
+    assert check()['version'] == 'beta'
+
+
+def test_pinned_project_finds_old_version(tmp_path, monkeypatch):
+    from cineforge import skill_store, skills
+    from cineforge.skill_pack_manifest import read_manifest
+
+    old = make_skill_pack(skill_store.pack_dir('2.63'), '2.63')
+    new = make_skill_pack(skill_store.pack_dir('2.64'), '2.64')
+    monkeypatch.delenv('CINEFORGE_SKILL_PACK')
+    monkeypatch.setattr(skills, 'DEFAULT_ROOTS', ())
+    skill_store.write_pointer('2.64', new)
+    assert skills.discover().root == new.resolve()
+    pinned = read_manifest(old, 'manifest.json')
+    assert skills.discover(expected=pinned).root == old.resolve()

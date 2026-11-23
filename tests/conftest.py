@@ -71,6 +71,14 @@ def fixture_pack(tmp_path_factory):
 
 
 @pytest.fixture(autouse=True)
+def _isolated_skill_store(monkeypatch, tmp_path_factory):
+    """The real user's skill-pack store and active pointer are never read in tests."""
+    base = tmp_path_factory.mktemp("xdg")
+    monkeypatch.setenv("XDG_DATA_HOME", str(base / "data"))
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(base / "config"))
+
+
+@pytest.fixture(autouse=True)
 def _fixture_pack_env(monkeypatch, fixture_pack):
     monkeypatch.setenv("CINEFORGE_SKILL_PACK", str(fixture_pack))
 
