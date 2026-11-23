@@ -21,10 +21,17 @@ jobs:
         with:
           python-version: "3.12"
 
+      # Delivery QA checks loudness to ±1 LU; the distro ffmpeg 6.1 lands at
+      # -12.99 LUFS, so the job uses the same current static build as development.
       - name: Install ffmpeg and fonts
         run: |
           sudo apt-get update
-          sudo apt-get install -y ffmpeg fonts-dejavu-core
+          sudo apt-get install -y fonts-dejavu-core xz-utils
+          curl -fsSL https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-master-latest-linux64-gpl.tar.xz \
+            | tar -xJ -C "$RUNNER_TEMP"
+          echo "$RUNNER_TEMP/ffmpeg-master-latest-linux64-gpl/bin" >> "$GITHUB_PATH"
+
+      - run: ffmpeg -version | head -1
 
       - name: Install
         run: python -m pip install -e '.[dev]' build
