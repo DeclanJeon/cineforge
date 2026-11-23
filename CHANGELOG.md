@@ -2,7 +2,7 @@
 
 사용자용 변경 이력입니다. 버전별 상세 노트는 [docs/release-notes](docs/release-notes/)와 [GitHub 릴리스](https://github.com/DeclanJeon/cineforge/releases)에 있습니다. 작성 규칙: [docs/release-notes.md](docs/release-notes.md).
 
-## 0.1.6 미출시
+## 0.1.6 2026-11-24
 
 스킬팩을 CineForge 명령으로 확인·설치·전환할 수 있습니다. 업데이트는 직접 실행할 때만 일어나고, 진행 중인 프로젝트는 처음 고정한 팩을 계속 씁니다.
 
