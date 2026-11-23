@@ -10,7 +10,7 @@ from typing import Any
 
 from cineforge import __version__
 from cineforge.data_loader import data_path, load
-from cineforge.pipeline import InvalidCutRevisionError, Project
+from cineforge.pipeline import InvalidCutRevisionError, InvalidProjectIdError, Project
 from cineforge.progress import render
 from cineforge.providers.router import MODES, build_router
 from cineforge.selection import interactive, merge, new_selection, parse_set_flags, summarize, load_json
@@ -72,6 +72,16 @@ def cmd_new(args: argparse.Namespace) -> int:
     if not request:
         print("요구사항(request)이 필요합니다.", file=sys.stderr)
         return 2
+    project_id = args.project_id
+    if project_id is None:
+        if not args.non_interactive and sys.stdin.isatty():
+            try:
+                project_id = input("프로젝트명 (예: cineforge-demo): ").strip()
+            except EOFError:
+                pass
+        if project_id is None:
+            print("프로젝트명이 필요합니다. --project-id cineforge-demo처럼 지정하세요.", file=sys.stderr)
+            return 2
     inputs = {k: getattr(args, k) for k in ("script", "scenario", "reference", "lead_character", "voice") if getattr(args, k, None)}
     if args.nonstop and not args.confirm_all:
         args.non_interactive = True
@@ -84,8 +94,11 @@ def cmd_new(args: argparse.Namespace) -> int:
         scope, preserve = args.cut_revision
         cut_revision = (scope, preserve)
     try:
-        project = Project.create(Path(args.projects_dir), request, args.provider, args.project_id,
+        project = Project.create(Path(args.projects_dir), request, args.provider, project_id,
                                  inputs=inputs, cut_revision=cut_revision)
+    except (InvalidProjectIdError, FileExistsError) as exc:
+        print(f"--project-id: {exc}", file=sys.stderr)
+        return 2
     except InvalidCutRevisionError as exc:
         print(f"--cut-revision: {exc}", file=sys.stderr)
         return 2
@@ -553,7 +566,7 @@ def build_parser() -> argparse.ArgumentParser:
     n = sub.add_parser("new", help="새 제작: 요구사항 → 선택 → 논스톱 진행")
     n.add_argument("request", nargs="?", help="만들고 싶은 영상(자유 서술)")
     n.add_argument("--projects-dir", default="./productions")
-    n.add_argument("--project-id")
+    n.add_argument("--project-id", help="폴더용 프로젝트명 (예: cineforge-demo). 비대화형 실행에서는 필수")
     n.add_argument("--provider", choices=MODES, default="auto")
     n.add_argument("--preset", help="taxonomy.yaml presets의 id")
     n.add_argument("--input-json", help="선택값 JSON 파일(selection.schema.json 형식)")

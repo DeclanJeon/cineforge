@@ -19,6 +19,8 @@
 
 `new` 옵션: `--provider auto|host|openrouter|mock`, `--preset`, `--set axis=value[,value]`(한국어 라벨 가능, `direction.texture=시네마틱`), `--input-json`, `--non-interactive`, `--confirm-all`, `--script/--scenario/--reference/--lead-character/--voice`, `--no-speech`, `--auto-accept-plan`, `--nonstop`, `--until`, `--projects-dir`, `--project-id`.
 
+폴더명은 `--project-id` 그대로 사용한다. 직접 실행하는 터미널에서는 생략하면 폴더명을 묻고, 비대화형(파이프 또는 `--non-interactive`)에서는 필수다. 호스트 에이전트는 사용자 지정 이름이 없으면 요구사항을 요약한 영문 소문자 슬러그를 `--project-id`로 전달한다. 기존 폴더는 그대로 유지된다.
+
 ## 2. 대화형 선택 규칙
 
 - 요청문에서 감지된 축은 묻지 않는다(`--confirm-all`이면 다시 확인).
@@ -31,7 +33,7 @@
 ## 3. 예시 세션(목업 공급자, 비대화형)
 
 ```
-$ cineforge new "60초 분량의 코미디 숏드라마 … 연출은 시네마틱 실사, 서사 구조는 결말 선공개" --provider mock --non-interactive --nonstop
+$ cineforge new "60초 분량의 코미디 숏드라마 … 연출은 시네마틱 실사, 서사 구조는 결말 선공개" --project-id comedy-short --provider mock --non-interactive --nonstop
 [요구사항 분석 — 9개 판단 요소]
   대본·각본이 있나?        없음 → AI가 기획안 확정 후 대본을 작성
   …
@@ -49,7 +51,7 @@ S08 이미지·영상·음성 생성  ⛔ blocked  … 'execution' 권한 필요
 ## 4. 호스트 AI 모드 세션
 
 ```
-$ cineforge new "…" --provider host --non-interactive
+$ cineforge new "…" --project-id comedy-short --provider host --non-interactive
 요구사항 분석에 호스트 에이전트 응답이 필요합니다 …
 # 에이전트: agent_io/requests/intake_factors.json 을 읽고 agent_io/responses/intake_factors.json 작성
 $ cineforge run productions/<id>      # 다음 요청이 생기면 반복

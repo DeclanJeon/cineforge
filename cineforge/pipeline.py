@@ -4,7 +4,6 @@ from __future__ import annotations
 import json
 import re
 from copy import deepcopy
-from datetime import datetime
 from pathlib import Path
 from typing import Any, Callable
 
@@ -31,9 +30,8 @@ DEFAULT_AUTHORITY = {"accept_plan": False, "accept_preproduction": False, "execu
                      "image_limit": None, "providers": None, "execution_until": None, "spend_ceiling": None, "granted_by": "user", "granted_at": None, "notes": []}
 
 
-def slugify(text: str) -> str:
-    base = re.sub(r"[^0-9A-Za-z가-힣]+", "-", text).strip("-")[:24] or "project"
-    return f"{datetime.now().strftime('%Y%m%d-%H%M%S')}-{base}"
+class InvalidProjectIdError(ValueError):
+    """A new project requires a folder-safe project ID."""
 
 
 from .receipts import atomic_text, pins
@@ -83,7 +81,9 @@ class Project:
             if not scope or not preserve:
                 raise InvalidCutRevisionError("수정 범위와 보존 조건이 모두 필요합니다.")
             cut_revision = (scope, preserve)
-        pid = project_id or slugify(request)
+        if not project_id or not re.fullmatch(r"[a-z0-9]+(?:-[a-z0-9]+)*", project_id):
+            raise InvalidProjectIdError("프로젝트명은 영문 소문자·숫자 단어를 하이픈으로 연결하세요 (예: cineforge-demo).")
+        pid = project_id
         root = Path(parent) / pid
         if (root / "project.json").exists():
             raise FileExistsError(f"이미 있는 프로젝트: {root}")

@@ -10,6 +10,7 @@ import re
 from pathlib import Path
 
 CASES = Path(__file__).with_name('data') / 'routing_cases.json'
+HOST_NEW = 'cineforge new "<요청 원문>" --provider host --project-id "<요구사항을 요약한 영문 소문자 슬러그>"'
 
 PRODUCTION = re.compile(
     r'영상|콘텐츠|드라마|숏폼|숏드라마|릴스|쇼츠|광고|브랜드\s*필름|뮤직비디오|다큐|애니|'
@@ -44,11 +45,11 @@ def judge(request: str) -> dict[str, object]:
     if production and not non_production:
         confidence = 0.95 if explicit else 0.9
         return {'route': 'cineforge', 'confidence': confidence, 'reasons': ['production_cue', 'explicit' if explicit else 'context'],
-                'next': 'cineforge new "<요청 원문>" --provider host'}
+                'next': HOST_NEW}
     if production and non_production:
         confidence = 0.55 if explicit else 0.4
         return {'route': 'cineforge' if explicit else 'other', 'confidence': confidence,
-                'reasons': ['mixed_intent'], 'next': 'cineforge new "<요청 원문>" --provider host' if explicit else None}
+                'reasons': ['mixed_intent'], 'next': HOST_NEW if explicit else None}
     return {'route': 'other', 'confidence': 0.8, 'reasons': ['no_production_cue'], 'next': None}
 
 

@@ -6,7 +6,7 @@
 콘셉트 조합부터 기획안·SSOT·에셋·검수·생성 인계까지 이어 주는 대화형 AI 영상 제작 오케스트레이터 CLI
 
 ![Python](https://img.shields.io/badge/python-3.10%2B-3776AB?logo=python&logoColor=white)
-![Version](https://img.shields.io/badge/version-0.1.0-6E56CF)
+![Version](https://img.shields.io/badge/version-0.1.1-6E56CF)
 ![Tests](https://img.shields.io/badge/tests-51%20passed%20%C2%B7%202%20live%20opt--in-2EA44F)
 ![Decision](https://img.shields.io/badge/decision-Jev%201.14%20(OpenRouter)-0A7AFF)
 ![Generation](https://img.shields.io/badge/plan%20writer-GPT--6.2%20Sol-111111)
@@ -142,7 +142,7 @@ cineforge motion "$project" --deliver <확인한-SHA256>
 새 프로젝트를 시작할 때 수정 범위와 보존 조건이 이미 정해졌다면 두 값을 함께 넘깁니다.
 
 ```bash
-cineforge new "기존 영상의 발 접지 수정안" --provider host --no-nonstop \
+cineforge new "기존 영상의 발 접지 수정안" --project-id foot-contact-revision --provider host --no-nonstop \
   --cut-revision "C07 / 원본 v2 / 2.10–2.65초" "인물·의상·카메라·입출구 상태"
 ```
 
@@ -224,10 +224,12 @@ flowchart TD
 ```bash
 python -m venv .venv && . .venv/bin/activate
 pip install -e ".[dev]"
-cineforge --version   # cineforge 0.1.0
+cineforge --version   # cineforge 0.1.1
 ```
 
 ### 대화형
+
+`--project-id`를 생략하면 터미널에서 폴더용 프로젝트명을 묻습니다. 영문 소문자·숫자 단어를 하이픈으로 연결하세요(예: `comedy-short`). 작품 제목이나 요청문은 바뀌지 않습니다.
 
 ```bash
 cineforge new "60초 코미디 숏드라마, 연출은 시네마틱 실사, 서사는 결말 선공개"
@@ -238,7 +240,7 @@ cineforge new "60초 코미디 숏드라마, 연출은 시네마틱 실사, 서�
 ```bash
 # 질문 없이 진행하고, 기획안·프리프로덕션 승인을 미리 위임(생성 비용 권한은 별도)
 cineforge new "60초 코미디 숏드라마, 연출은 시네마틱 실사, 서사는 결말 선공개" \
-  --non-interactive --nonstop --set aspect=9:16
+  --project-id comedy-short --non-interactive --nonstop --set aspect=9:16
 
 # 생성 단계 앞에서 멈추면, 비용 한도와 함께 실행 권한을 기록하고 이어서 실행
 cineforge grant productions/<id> execution --spend-ceiling 20USD

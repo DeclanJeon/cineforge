@@ -33,7 +33,7 @@ sequenceDiagram
   participant C as CineForge
   participant R as 공급자 라우터
   participant A as 호스트 에이전트/스킬
-  U->>C: cineforge new "요구사항"
+  U->>C: cineforge new "요구사항" --project-id comedy-short
   C->>R: 9개 요소 판정(Noul)
   R-->>C: 판정(Jev → 호스트 → 규칙)
   C->>U: 열린 축만 한 번에 질문
