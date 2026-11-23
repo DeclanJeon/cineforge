@@ -107,6 +107,16 @@ def cmd_new(args: argparse.Namespace) -> int:
         project.grant(accept_plan=True, accept_preproduction=True, notes=["nonstop"])
     if args.image_limit is not None:
         project.grant(image_limit=args.image_limit)
+    if args.goal:
+        from cineforge import goal_contract
+
+        resolved = goal_contract.resolve(request, None if args.goal == "auto" else args.goal)
+        if resolved["status"] != "resolved":
+            print(json.dumps({"goal": "unresolved", **resolved}, ensure_ascii=False, indent=2))
+            print("완료 조건을 확정하지 못해 제작은 시작하지 않았습니다. `cineforge goal set <프로젝트> --kind text_storyboard|delivery_mp4`로 확정하세요.", file=sys.stderr)
+            return 3
+        goal_contract.write(project.root, resolved["goal"])
+        print(f"목표: {resolved['goal']['kind']} {resolved['goal']['constraints']}")
     project.run(until="S00_intake")
     intake = project.read("intake.json")
     if intake is None:
@@ -165,6 +175,38 @@ def _run_and_report(project: Project, until: str | None) -> int:
     if (project.root / "plan.md").exists():
         print(f"\n기획안: {project.root / 'plan.md'}")
     return 0
+
+
+def cmd_goal(args: argparse.Namespace) -> int:
+    from cineforge import goal_attempts, goal_contract, goal_driver
+    from cineforge.goal_evidence import evaluate
+
+    root = Path(args.project)
+    if not (root / "project.json").is_file():
+        raise FileNotFoundError(f"프로젝트를 찾을 수 없습니다: {root}")
+    if args.goal_cmd == "set":
+        request = args.request or json.loads((root / "project.json").read_text(encoding="utf-8"))["request"]
+        resolved = goal_contract.resolve(request, args.kind)
+        if resolved["status"] != "resolved":
+            print(json.dumps(resolved, ensure_ascii=False, indent=2))
+            return 2
+        goal = goal_contract.write(root, resolved["goal"])
+        print(json.dumps(goal, ensure_ascii=False, indent=2))
+        return 0
+    if args.goal_cmd == "reconcile":
+        row = goal_attempts.resolve(root, args.key, "issued" if args.issued else "abandoned")
+        print(json.dumps(row, ensure_ascii=False))
+        return 0
+    goal = goal_contract.read(root)
+    if goal is None:
+        print("목표가 없습니다: `cineforge goal set`", file=sys.stderr)
+        return 2
+    if args.goal_cmd == "show":
+        print(json.dumps({"goal": goal, "assessment": evaluate(root, goal)}, ensure_ascii=False, indent=2))
+        return 0
+    result = goal_driver.drive(root)
+    print(json.dumps(result, ensure_ascii=False, indent=2) if args.json else f"{result['state']}: {result.get('next_action') or result.get('reason') or ''}")
+    return goal_driver.EXIT[result["state"]]
 
 
 def cmd_select(args: argparse.Namespace) -> int:
@@ -595,7 +637,25 @@ def build_parser() -> argparse.ArgumentParser:
     n.add_argument("--nonstop", action=argparse.BooleanOptionalAction, default=True, help="기본: 자동 기획, --no-nonstop: 수동 검토")
     n.add_argument("--image-limit", type=int, help="Codex Imagen 실행·참조 전송 범위 상한(작품 누적 건수). 비용 승인 아님")
     n.add_argument("--until", help="이 단계까지만 실행(예: S03_plan)")
+    n.add_argument("--goal", choices=["auto", "text_storyboard", "delivery_mp4"], help="요청의 완료 조건을 저장하고 그 범위 안에서만 실행")
     n.set_defaults(func=cmd_new)
+
+    g = sub.add_parser("goal", help="목표 확인·확정·자동 진행(--goal로 만든 프로젝트)")
+    gs = g.add_subparsers(dest="goal_cmd", required=True)
+    for name, text in (("show", "목표와 증거 평가(읽기 전용)"), ("set", "목표 확정"), ("drive", "목표까지 허용 범위 안에서 진행"), ("reconcile", "불확실한 시도 대조")):
+        gp = gs.add_parser(name, help=text)
+        gp.add_argument("project")
+        if name == "set":
+            gp.add_argument("--kind", choices=["text_storyboard", "delivery_mp4"])
+            gp.add_argument("--request")
+        if name == "drive":
+            gp.add_argument("--json", action="store_true")
+        if name == "reconcile":
+            gp.add_argument("key")
+            gm = gp.add_mutually_exclusive_group(required=True)
+            gm.add_argument("--issued", action="store_true")
+            gm.add_argument("--abandoned", action="store_true")
+    g.set_defaults(func=cmd_goal)
 
     se = sub.add_parser("select", help="기존 프로젝트의 콘셉트 선택 (재)진행")
     se.add_argument("project")
@@ -767,6 +827,11 @@ def build_parser() -> argparse.ArgumentParser:
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     try:
+        target = getattr(args, "project", None)
+        if target and args.command != "goal" and (Path(target) / "goal.json").is_file():
+            from cineforge.goal_driver import ensure_allowed
+
+            ensure_allowed(Path(target), args.command)
         return int(args.func(args) or 0)
     except (FileExistsError, FileNotFoundError, KeyError, ValueError, PermissionError) as exc:
         print(f"오류: {exc}", file=sys.stderr)

@@ -6,7 +6,7 @@
 콘셉트 조합부터 기획안·SSOT·에셋·검수·생성 인계까지 이어 주는 대화형 AI 영상 제작 오케스트레이터 CLI
 
 ![Python](https://img.shields.io/badge/python-3.10%2B-3776AB?logo=python&logoColor=white)
-![Version](https://img.shields.io/badge/version-0.1.2-6E56CF)
+![Version](https://img.shields.io/badge/version-0.1.3-6E56CF)
 ![Tests](https://img.shields.io/badge/tests-51%20passed%20%C2%B7%202%20live%20opt--in-2EA44F)
 ![Decision](https://img.shields.io/badge/decision-Jev%201.14%20(OpenRouter)-0A7AFF)
 ![Generation](https://img.shields.io/badge/plan%20writer-GPT--6.2%20Sol-111111)
@@ -224,7 +224,7 @@ flowchart TD
 ```bash
 python -m venv .venv && . .venv/bin/activate
 pip install -e ".[dev]"
-cineforge --version   # cineforge 0.1.2
+cineforge --version   # cineforge 0.1.3
 ```
 
 코드 모션 컷의 승인·접수·조립·재생 검수는 [코드 모션 납품 절차](docs/code-motion.md)를 따릅니다.
@@ -421,3 +421,24 @@ CINEFORGE_LIVE=1 python -m pytest -q tests/test_live_openrouter.py   # 키 필�
 ## 라이선스
 
 [MIT](LICENSE) © 2026 Declan Jeon
+
+## 목표 기반 실행 (`--goal`, 선택 기능)
+
+요청의 **완료 조건**을 `goal.json`에 저장하고, 그 범위 안에서만 진행·종료합니다. `--goal`을 쓰지 않은 프로젝트는 종전과 같습니다.
+
+```bash
+cineforge new "15초 9:16 광고 스토리보드만" --project-id demo --goal auto   # 보드 검증 후 종료, 생성 호출 0회
+cineforge new "15초 9:16 광고 최종 MP4 납품" --project-id demo2 --goal auto
+cineforge goal show demo2            # 목표와 증거 평가(읽기 전용)
+cineforge goal drive demo2 --json    # 허용 범위 안에서 다음 행동을 수행하고 상태 반환
+```
+
+| 상태 | 종료 코드 | 의미 |
+|---|---|---|
+| `satisfied` | 0 | 완료 증거 충족 |
+| `needs_user` / `waiting_external` / `busy` | 3 | 사용자 승인·검수 또는 호스트 작업·다른 실행 대기 |
+| `blocked` / `needs_reconciliation` | 4 | 수정 불가 또는 원격 접수 여부 불명(`goal reconcile`로 대조, 자동 재전송 없음) |
+
+- 텍스트 보드 목표: 컷 고유성·카메라 연결·길이(±1프레임@24fps)·화면비를 검사. 이후 단계(`run`, `execute`, `render`, `deliver` 등)는 거부됩니다. 총길이만 어긋나면 컷 길이를 프레임 단위로 비례 재배분합니다(잠금 시 중단).
+- MP4 목표: 렌더·기술 QA·gate·**해당 렌더 해시에 대한 사용자 승인**(`accept final`이 해시를 기록)·납품본 해시 일치까지 확인. 검증(`verify`)과 최종 승인은 항상 사람이 합니다.
+- `run --until`은 운영자 중단점이며 목표 달성 증거가 아닙니다.

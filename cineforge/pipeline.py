@@ -182,8 +182,14 @@ class Project:
             "S07_assets": self._s07, "G2_preproduction_review": self._g2, "S08_generation": self._external,
             "S09_edit": self._external, "S10_qa": self._external, "G3_user_review": self._g3, "S11_delivery": self._external,
         }
+        from .goal_driver import ceiling
+
+        stage_ids = [s["id"] for s in self.pipeline["stages"]]
+        cap = ceiling(self.root)
         for stage in self.pipeline["stages"]:
             sid = stage["id"]
+            if cap and stage_ids.index(sid) > stage_ids.index(cap):
+                break  # goal: later stages are outside the requested deliverable
             if sid in EXTERNAL_STAGES:
                 receipt = self.read(f"receipts/{sid}.json")
                 status = prog["stages"][sid]["status"]
@@ -589,7 +595,12 @@ class Project:
             if prog["stages"]["G2_preproduction_review"]["status"] == "waiting_user":
                 self.set_stage(prog, "G2_preproduction_review", "done", "사용자 승인")
         elif gate == "final":
-            self.write("reviews/user_review.json", {"accepted": True, "at": now()})
+            record: dict[str, Any] = {"accepted": True, "at": now()}
+            render = self.root / "edit/render.mp4"
+            if render.is_file():
+                import hashlib
+                record["render_sha256"] = hashlib.sha256(render.read_bytes()).hexdigest()
+            self.write("reviews/user_review.json", record)
             self.set_stage(prog, "G3_user_review", "done", "사용자 최종 승인")
         else:
             raise ValueError("gate는 plan | preproduction | final")

@@ -87,3 +87,7 @@ flowchart LR
 | 사운드 큐 시트 전담 route 없음 | R13(에셋 하나)로 처리 | 유지(R13 범위 안). 별도 route는 필요 시 |
 | 성과 피드백 루프 | S12 비어 있음 | 로드맵 6단계 |
 | 자동 품질 평가(영상) | S10은 인계만 | 로드맵 4단계 |
+
+## 목표 기반 실행(선택)
+
+`goal.json` 이 있는 프로젝트만 해당. 단계 상태가 아니라 증거로 완료를 판정하며 `Project.run`은 목표의 단계 상한(`text_storyboard`=S06)을 넘지 않는다. 상태·종료 코드·복구 절차는 README의 「목표 기반 실행」, 설계는 `docs/superpowers/specs/2026-11-24-goal-driver-design.md` 참조.
