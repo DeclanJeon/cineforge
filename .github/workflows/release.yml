@@ -1,0 +1,58 @@
+name: release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    env:
+      PYTHONUTF8: "1"
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install
+        run: python -m pip install -e '.[dev]' build
+
+      - name: Tag, version and notes
+        run: python scripts/check_release.py "$GITHUB_REF_NAME"
+
+      - name: Unit tests
+        run: python -m pytest -q -rs
+
+      - name: Build wheel and sdist
+        run: python -m build
+
+      - name: Publish release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          VER="${GITHUB_REF_NAME#v}"
+          gh release create "$GITHUB_REF_NAME" dist/* \
+            --title "CineForge v$VER" \
+            --notes-file "docs/release-notes/$VER.md"
+
+      - name: Notify landing page
+        env:
+          TOKEN: ${{ secrets.LANDING_DISPATCH_TOKEN }}
+        run: |
+          VER="${GITHUB_REF_NAME#v}"
+          if [ -z "$TOKEN" ]; then
+            echo "::warning::LANDING_DISPATCH_TOKEN not set; the landing page picks this release up on its daily sync."
+            exit 0
+          fi
+          curl -fsS -X POST \
+            -H "Authorization: Bearer $TOKEN" \
+            -H "Accept: application/vnd.github+json" \
+            https://api.github.com/repos/DeclanJeon/cineforge-landing/dispatches \
+            -d "{\"event_type\":\"release-published\",\"client_payload\":{\"product\":\"cineforge\",\"version\":\"$VER\"}}"
