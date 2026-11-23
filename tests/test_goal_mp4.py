@@ -48,7 +48,7 @@ def host_supplies_media(p, tmp_path):
     p.write('edit/proxy.json', {'width': 180, 'height': 320})
     wav = p.root / 'audio/tone.wav'
     wav.parent.mkdir(parents=True, exist_ok=True)
-    subprocess.run(['ffmpeg', '-v', 'error', '-f', 'lavfi', '-i', 'sine=frequency=300:duration=1', '-ac', '2', '-ar', '48000', '-y', str(wav)], check=True)
+    subprocess.run(['ffmpeg', '-v', 'error', '-f', 'lavfi', '-i', 'sine=frequency=300:duration=1', '-af', 'volume=-10dB', '-ac', '2', '-ar', '48000', '-y', str(wav)], check=True)
     apply_results(p.root, [{'job_id': j.job_id, 'status': 'accepted', 'path': 'audio/tone.wav'} for j in plan_jobs(p.root)])
     for cut in p.read('ssot/scene.json')['data']['cuts']:
         clip = p.root / 'takes' / f'{cut["cut_id"]}.mp4'

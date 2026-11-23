@@ -25,7 +25,9 @@ def test_plan_routes_each_cue_to_its_mcp_lane():
     assert lanes['BGM'] == ('suno', 'suno_mcp', True)
     assert lanes['SFX'] == ('elevenlabs', 'elevenlabs_sound_effect', False)
     assert lanes['AMBIENCE'][2] is True
-    assert lanes['DIALOGUE'][0] == 'fish_audio'
+    assert lanes['DIALOGUE'][0] == 'native'
+    external = {row.kind: row.provider for row in plan(cues(), mood='조용한 긴장', era='1999년 한국', external_voice=True)}
+    assert external['DIALOGUE'] == 'fish_audio'
     assert all(row.prompt.strip() and row.ai_disclosure for row in rows)
     assert 'no vocals' in rows[0].prompt
     with pytest.raises(SoundError, match='unsupported cue type'):
@@ -99,5 +101,5 @@ def test_pipeline_writes_provider_addressed_sound_plan(tmp_path):
     project.run(until='S07_assets')
     sound = project.read('assets/sound_plan.json')
     assert sound and sound['generated'] is False
-    assert {cue['provider'] for cue in sound['cues']} <= {'suno', 'elevenlabs', 'fish_audio'}
+    assert {cue['provider'] for cue in sound['cues']} <= {'suno', 'elevenlabs', 'fish_audio', 'native'}
     assert all(cue['tool'] and cue['prompt'] for cue in sound['cues'])

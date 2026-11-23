@@ -91,6 +91,8 @@ def cmd_new(args: argparse.Namespace) -> int:
         inputs["with_dialogue"] = True
     if args.no_speech:
         inputs["no_speech"] = True
+    if args.external_voice:
+        inputs["external_voice"] = True
     cut_revision = None
     if args.cut_revision is not None:
         scope, preserve = args.cut_revision
@@ -635,6 +637,7 @@ def build_parser() -> argparse.ArgumentParser:
     speech = n.add_mutually_exclusive_group()
     speech.add_argument("--with-dialogue", action="store_true", help="극영화 대사 사용")
     speech.add_argument("--no-speech", action="store_true", help="대사·음성 없음(효과음·연출만)")
+    n.add_argument("--external-voice", action="store_true", help="대사를 영상 모델 네이티브가 아닌 별도 음성(TTS)으로 제작(기본: 네이티브)")
     n.add_argument("--auto-accept-plan", action="store_true", help="기획안 자동 검수 통과 시 사용자 승인으로 간주(사용자가 명시적으로 위임)")
     n.add_argument("--nonstop", action=argparse.BooleanOptionalAction, default=True, help="기본: 자동 기획, --no-nonstop: 수동 검토")
     n.add_argument("--image-limit", type=int, help="Codex Imagen 실행·참조 전송 범위 상한(작품 누적 건수). 비용 승인 아님")

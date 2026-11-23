@@ -61,14 +61,21 @@ def _seconds(value: float) -> str:
     return f'{value:.2f}s'
 
 
-def plan(cues: list[dict[str, object]], *, mood: str, era: str) -> list[Cue]:
-    """Turn SSOT cues into provider-addressed prompts."""
+NATIVE = ('native', 'video_native_audio')
+
+
+def plan(cues: list[dict[str, object]], *, mood: str, era: str, external_voice: bool = False) -> list[Cue]:
+    """Turn SSOT cues into provider-addressed prompts.
+
+    Dialogue is generated natively by the video model unless a separate voice was requested."""
     rows: list[Cue] = []
     for raw in cues:
         kind = str(raw['type'])
         if kind not in LANES:
             raise SoundError(f'unsupported cue type: {kind}')
         provider, tool, loop = LANES[kind]
+        if kind == 'DIALOGUE' and not external_voice:
+            provider, tool = NATIVE
         description = str(raw['description'])
         span = f"{_seconds(float(raw['tc_in']))}~{_seconds(float(raw['tc_out']))}"
         if kind == 'OST':

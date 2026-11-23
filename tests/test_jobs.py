@@ -43,7 +43,7 @@ def test_audio_jobs_cover_four_lanes_and_are_deterministic(tmp_path):
     project = _project(tmp_path)
     jobs = audio_jobs(project.root)
     kinds = {job.kind for job in jobs}
-    assert {'ost', 'bgm', 'sfx', 'dialogue'} <= kinds
+    assert {'ost', 'bgm', 'sfx'} <= kinds and 'dialogue' not in kinds  # dialogue is native to the video model by default
     assert all(job.provider in ('suno', 'elevenlabs', 'fish_audio') for job in jobs)
     assert audio_jobs(project.root) == jobs
     assert len({job.job_id for job in jobs}) == len(jobs)

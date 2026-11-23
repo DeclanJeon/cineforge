@@ -29,7 +29,7 @@ def test_request_reaches_delivered_mp4(tmp_path, capsys, monkeypatch, code_motio
     wav = project.root / 'audio/tone.wav'
     wav.parent.mkdir(parents=True, exist_ok=True)
     subprocess.run(['ffmpeg', '-v', 'error', '-f', 'lavfi', '-i', 'sine=frequency=300:duration=1',
-                    '-ac', '2', '-ar', '48000', '-y', str(wav)], check=True)
+                    '-af', 'volume=-10dB', '-ac', '2', '-ar', '48000', '-y', str(wav)], check=True)
     results = tmp_path / 'audio-results.json'
     audio_rows = [{'job_id': job.job_id, 'status': 'accepted', 'path': 'audio/tone.wav'} for job in plan_audio(project.root)]
     results.write_text(json.dumps(audio_rows))

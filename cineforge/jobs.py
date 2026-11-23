@@ -78,10 +78,20 @@ def _job(project: Path, *, job_id: str, kind: str, inputs: list[str], prompt: st
                tuple(sorted((str(k), str(v)) for k, v in params.items())), key, depends_on)
 
 
+def external_voice(project: Path) -> bool:
+    """True only when a separate voice (TTS/reference/dubbing) was explicitly requested."""
+    meta = project / 'project.json'
+    inputs = json.loads(meta.read_text(encoding='utf-8')).get('inputs', {}) if meta.is_file() else {}
+    return bool(inputs.get('external_voice'))
+
+
 def audio_jobs(project: Path) -> tuple[Job, ...]:
     sound = json.loads((project / 'assets/sound_plan.json').read_text(encoding='utf-8'))['cues']
     jobs = []
+    separate = external_voice(project)
     for cue in sound:
+        if cue['kind'] == 'DIALOGUE' and (not separate or cue.get('provider') == 'native'):
+            continue  # default: the video model speaks the line natively
         kind = {'OST': 'ost', 'BGM': 'bgm', 'SFX': 'sfx', 'AMBIENCE': 'sfx', 'DIALOGUE': 'dialogue'}.get(cue['kind'])
         if kind is None:
             raise JobError(f'unsupported cue: {cue["kind"]}')

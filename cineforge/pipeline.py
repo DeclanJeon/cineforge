@@ -448,12 +448,13 @@ class Project:
         self.write("assets/asset_registry.json", assets.registry(pid, ss), "asset_registry")
         self.write("assets/frames.json", assets.frames(pid, ss), "frames")
         self.write("assets/image_prompts.json", assets.image_prompts(pid, ss, aspect, look), "prompts")
-        self.write("assets/video_prompts.json", assets.video_prompts(pid, ss, aspect, silent), "prompts")
+        self.write("assets/video_prompts.json", assets.video_prompts(pid, ss, aspect, silent, external_voice=bool((self.read("project.json") or {}).get("inputs", {}).get("external_voice"))), "prompts")
         self.write("assets/sound_cue_sheet.json", assets.sound_cue_sheet(pid, ss, runtime), "sound_cue_sheet")
         from .sound import plan as sound_plan, write_plan
         mood = self.read("plan.json")["production_spec"].get("bgm") or "장면 정서에 맞춘 절제된 긴장"
         era = ss["world"]["data"].get("era") or ""
-        write_plan(self.root, sound_plan(ss["audio"]["data"]["cues"], mood=mood, era=era), selected={})
+        write_plan(self.root, sound_plan(ss["audio"]["data"]["cues"], mood=mood, era=era,
+                                          external_voice=bool((self.read("project.json") or {}).get("inputs", {}).get("external_voice"))), selected={})
         self._handoff("S07_assets", {"enrich": "video-production-assets(11-ai-handoff)·ai-camera-control(R19)로 모델별 프롬프트 방언 변환은 실행 직전에"})
         self.set_stage(prog, "S07_assets", "done", ", ".join(written) + " · 에셋/프레임/프롬프트/큐시트 작성")
         return True

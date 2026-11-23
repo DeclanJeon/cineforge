@@ -107,21 +107,35 @@ def image_prompts(project_id: str, ssots: dict[str, dict[str, Any]], aspect: str
     return {"project_id": project_id, "kind": "image", "prompts": prompts}
 
 
-def video_prompts(project_id: str, ssots: dict[str, dict[str, Any]], aspect: str, silent: bool) -> dict[str, Any]:
+def video_prompts(project_id: str, ssots: dict[str, dict[str, Any]], aspect: str, silent: bool, external_voice: bool = False) -> dict[str, Any]:
     cams = {c["cut_id"]: c for c in _ssot(ssots, "camera")["cuts"]}
     motions = {m["cut_id"]: m for m in _ssot(ssots, "motion")["cuts"]}
     cues = _ssot(ssots, "audio")["cues"]
+    voices = {c["id"]: c for c in _ssot(ssots, "character")["characters"]}
     prompts = []
     for cut in _ssot(ssots, "scene")["cuts"]:
         cam, mo = cams[cut["cut_id"]], motions[cut["cut_id"]]
         sfx = [q["description"] for q in cues if q.get("cut_id") == cut["cut_id"] and q["type"] == "SFX"]
-        audio = "대사 없음. " if silent or not cut.get("dialogue") else f"대사({cut.get('speaker')}): \"{cut['dialogue']}\". "
-        audio += ("효과음: " + "; ".join(sfx)) if sfx else "앰비언스 유지"
+        spoken = bool(cut.get("dialogue")) and not silent
+        native = spoken and not external_voice
+        sfx_text = ("효과음: " + "; ".join(sfx)) if sfx else "앰비언스 유지"
+        if native:
+            who = voices.get(cut.get("speaker"), {})
+            identity = f"{who.get('name', cut.get('speaker'))}의 목소리: {(who.get('voice') or {}).get('description') or '컷마다 동일한 음색·발음·말투 유지'}"
+            audio_section = (f"AUDIO(네이티브, 같은 요청에서 영상과 함께 생성): 화자 {cut.get('speaker')}가 화면 안에서 직접 말한다. "
+                             f"대사: \"{cut['dialogue']}\". 입 모양은 대사에 맞춘다. {identity}. {sfx_text}")
+        elif spoken:
+            audio_section = f"AUDIO: 대사는 별도 음성 트랙으로 후처리한다(영상에서 발화 생성 안 함). {sfx_text}"
+        else:
+            audio_section = "AUDIO: 대사 없음. " + sfx_text
+        audio = audio_section
         prompts.append({"prompt_id": f"VID-{cut['cut_id']}", "target": cut["cut_id"], "cut_id": cut["cut_id"], "kind": "video",
                         "prompt": f"시작 프레임 IMG-{cut['cut_id']}-S 에서 종료 프레임 IMG-{cut['cut_id']}-E 로. 동작: {mo['action']} (속도 {mo['speed']}, 방향 {mo['direction']}). "
                                   f"카메라: {cam['movement']}, {cam['shot_size']}. 길이 {cut['duration']}초. 사운드: {audio}. 인물 얼굴·의상·소품 위치는 시작 프레임과 동일하게 유지.",
                         "negative": ", ".join(NEGATIVE_BASE), "refs": [f"IMG-{cut['cut_id']}-S", f"IMG-{cut['cut_id']}-E"],
-                        "params": {"duration_s": cut["duration"], "aspect": aspect, "audio": not silent},
+                        "params": {"duration_s": cut["duration"], "aspect": aspect, "audio": not silent,
+                                   "dialogue_mode": "native" if native else ("external" if spoken else "none"),
+                                   "native_audio_support": "UNVERIFIED" if native else None},
                         "ssot_versions": _versions(ssots, ["scene", "camera", "motion", "audio", "character"])})
     return {"project_id": project_id, "kind": "video", "prompts": prompts}
 
