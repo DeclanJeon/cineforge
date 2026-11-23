@@ -6,7 +6,7 @@
 콘셉트 조합부터 기획안·SSOT·에셋·검수·생성 인계까지 이어 주는 대화형 AI 영상 제작 오케스트레이터 CLI
 
 ![Python](https://img.shields.io/badge/python-3.10%2B-3776AB?logo=python&logoColor=white)
-![Version](https://img.shields.io/badge/version-0.1.5-6E56CF)
+![Version](https://img.shields.io/badge/version-0.1.6-6E56CF)
 ![Tests](https://img.shields.io/badge/tests-51%20passed%20%C2%B7%202%20live%20opt--in-2EA44F)
 ![Decision](https://img.shields.io/badge/decision-Jev%201.14%20(OpenRouter)-0A7AFF)
 ![Generation](https://img.shields.io/badge/plan%20writer-GPT--6.2%20Sol-111111)
@@ -224,7 +224,7 @@ flowchart TD
 ```bash
 python -m venv .venv && . .venv/bin/activate
 pip install -e ".[dev]"
-cineforge --version   # cineforge 0.1.5
+cineforge --version   # cineforge 0.1.6
 ```
 
 코드 모션 컷의 승인·접수·조립·재생 검수는 [코드 모션 납품 절차](docs/code-motion.md)를 따릅니다.

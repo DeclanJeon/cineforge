@@ -30,6 +30,12 @@ def main(argv: list[str]) -> int:
     if tag_version != version:
         print(f"tag {argv[0]} does not match pyproject version {version}", file=sys.stderr)
         return 2
+    init = ROOT / "cineforge" / "__init__.py"
+    if init.is_file():
+        match = re.search(r'^__version__\s*=\s*"([^"]+)"', init.read_text(encoding="utf-8"), re.MULTILINE)
+        if not match or match.group(1) != version:
+            print(f"cineforge/__init__.py version does not match pyproject version {version}", file=sys.stderr)
+            return 2
     notes = ROOT / "docs" / "release-notes" / f"{version}.md"
     if not notes.is_file():
         print(f"missing release notes: {notes}", file=sys.stderr)

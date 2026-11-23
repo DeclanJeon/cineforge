@@ -46,3 +46,22 @@ def test_check_release_exit_codes(tmp_path):
     shutil.copy(ROOT / "scripts" / "check_release.py", copy / "scripts")
     shutil.copy(ROOT / "pyproject.toml", copy)
     assert _check(f"v{version}", copy) == 3
+
+
+def test_check_release_requires_matching_package_version(tmp_path):
+    version = next(line.split('"')[1] for line in (ROOT / "pyproject.toml").read_text().splitlines()
+                   if line.startswith("version"))
+    copy = tmp_path / "repo"
+    shutil.copytree(ROOT / "scripts", copy / "scripts")
+    shutil.copytree(ROOT / "docs", copy / "docs")
+    shutil.copy(ROOT / "pyproject.toml", copy)
+    (copy / "cineforge").mkdir()
+    (copy / "cineforge" / "__init__.py").write_text('__version__ = "0.0.1"\n')
+    assert _check(f"v{version}", copy) == 2
+
+
+def test_current_version_notes_describe_skill_update_commands():
+    version = next(line.split('"')[1] for line in (ROOT / "pyproject.toml").read_text().splitlines()
+                   if line.startswith("version"))
+    text = (NOTES / f"{version}.md").read_text(encoding="utf-8")
+    assert "cineforge skills update" in text

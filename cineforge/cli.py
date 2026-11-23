@@ -529,6 +529,31 @@ def cmd_skills_list(args: argparse.Namespace) -> int:
     return 0
 
 
+def _env_override_warning() -> dict:
+    from cineforge.skills import explicit_root
+
+    root = explicit_root()
+    if not root:
+        return {}
+    return {"warning": f"CINEFORGE_SKILL_PACK={root} 이 활성 버전보다 우선합니다. "
+                       "설치한 버전을 쓰려면 이 환경변수를 해제하세요."}
+
+
+def _active_pack_version() -> str | None:
+    """The pack new projects would use: env override, active pointer, then host roots."""
+    from cineforge import skill_store
+    from cineforge.skill_pack_manifest import SkillPackError
+    from cineforge.skills import discover, explicit_root
+
+    pointer = skill_store.read_pointer()
+    if pointer and not explicit_root():
+        return pointer["version"]
+    try:
+        return discover().binding.version
+    except SkillPackError:
+        return pointer["version"] if pointer else None
+
+
 def cmd_skills_update(args: argparse.Namespace) -> int:
     """Explicit update: show what is new, install only after --yes or a typed confirmation."""
     import sys
@@ -536,15 +561,14 @@ def cmd_skills_update(args: argparse.Namespace) -> int:
     from cineforge import skill_store
     from cineforge.skill_pack_manifest import SkillPackError
 
-    pointer = skill_store.read_pointer()
-    current = pointer["version"] if pointer else None
+    current = _active_pack_version()
     try:
         info = skill_store.fetch_release(args.version)
     except SkillPackError as exc:
         _emit({"current": current, "error": str(exc)})
         return 1
     report = {"current": current, "latest": info.version, "update_available": info.version != current,
-              "notes": info.notes, "installed": None}
+              "notes": info.notes, "installed": None, **_env_override_warning()}
     if args.check or not report["update_available"]:
         _emit(report)
         return 0
@@ -570,13 +594,20 @@ def cmd_skills_update(args: argparse.Namespace) -> int:
 def cmd_skills_use(args: argparse.Namespace) -> int:
     from cineforge import skill_store
 
+    if args.default:
+        skill_store.pointer_path().unlink(missing_ok=True)
+        _emit({"active": None, "note": "새 프로젝트는 기본 스킬 루트에서 팩을 찾습니다.", **_env_override_warning()})
+        return 0
+    if not args.version:
+        _emit({"error": "버전 또는 --default를 지정하세요.", "installed": skill_store.installed_versions()})
+        return 1
     version = args.version.removeprefix("v")
     if version not in skill_store.installed_versions():
         _emit({"error": f"스킬팩 {version}이 설치되어 있지 않습니다. `cineforge skills update --version {version} --yes`로 설치하세요.",
                "installed": skill_store.installed_versions()})
         return 1
     skill_store.write_pointer(version, skill_store.pack_dir(version))
-    _emit({"active": version, "root": str(skill_store.pack_dir(version))})
+    _emit({"active": version, "root": str(skill_store.pack_dir(version)), **_env_override_warning()})
     return 0
 
 
@@ -796,7 +827,8 @@ def build_parser() -> argparse.ArgumentParser:
     sku.add_argument("--yes", action="store_true", help="확인 질문 없이 설치")
     sku.set_defaults(func=cmd_skills_update)
     skus = sk_sub.add_parser("use", help="새 프로젝트에 쓸 설치된 버전 선택")
-    skus.add_argument("version")
+    skus.add_argument("version", nargs="?")
+    skus.add_argument("--default", action="store_true", help="활성 버전을 해제하고 기본 스킬 루트 사용")
     skus.set_defaults(func=cmd_skills_use)
 
     ex = sub.add_parser("execute", help="실행 봉투 생성(S08_audio/S08_video)")

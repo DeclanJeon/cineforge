@@ -30,6 +30,14 @@ def fake_remote(monkeypatch):
     return installed
 
 
+@pytest.fixture
+def no_host_pack(monkeypatch):
+    from cineforge import skills
+
+    monkeypatch.delenv("CINEFORGE_SKILL_PACK")
+    monkeypatch.setattr(skills, "DEFAULT_ROOTS", ())
+
+
 def run(capsys, *argv):
     code = main(["skills", *argv])
     return code, capsys.readouterr().out
@@ -43,7 +51,7 @@ def test_bare_skills_command_unchanged(capsys, fixture_pack):
     assert code == 0 and json.loads(out)["available"] is True
 
 
-def test_update_check_no_write(capsys, fake_remote):
+def test_update_check_no_write(capsys, fake_remote, no_host_pack):
     code, out = run(capsys, "update", "--check")
     report = json.loads(out)
     assert code == 0
@@ -59,7 +67,7 @@ def test_update_requires_yes_noninteractive(capsys, fake_remote, monkeypatch):
     assert fake_remote == [] and skill_store.read_pointer() is None
 
 
-def test_update_yes_installs_and_points(capsys, fake_remote):
+def test_update_yes_installs_and_points(capsys, fake_remote, no_host_pack):
     code, out = run(capsys, "update", "--yes")
     report = json.loads(out)
     assert code == 0 and report["installed"] == "2.65"
@@ -68,7 +76,7 @@ def test_update_yes_installs_and_points(capsys, fake_remote):
     assert json.loads(out) == {"active": "2.65", "installed": ["2.65"]}
 
 
-def test_update_when_current_is_latest(capsys, fake_remote):
+def test_update_when_current_is_latest(capsys, fake_remote, no_host_pack):
     run(capsys, "update", "--yes")
     code, out = run(capsys, "update", "--check")
     assert json.loads(out)["update_available"] is False
@@ -89,3 +97,31 @@ def test_update_network_error_exit_1(capsys, monkeypatch):
     monkeypatch.setattr(skill_store, "fetch_release", offline)
     code, out = run(capsys, "update", "--check")
     assert code == 1 and json.loads(out)["error"].startswith("skill_pack_network")
+
+
+def test_env_override_warns_and_reports_current(capsys, fake_remote, monkeypatch, fixture_pack):
+    # CINEFORGE_SKILL_PACK is set to the fixture pack (version "fixture") by conftest.
+    code, out = run(capsys, "update", "--check")
+    report = json.loads(out)
+    assert code == 0 and report["current"] == "fixture"
+    assert "CINEFORGE_SKILL_PACK" in report["warning"]
+    code, out = run(capsys, "update", "--yes")
+    assert "CINEFORGE_SKILL_PACK" in json.loads(out)["warning"]
+
+
+def test_current_falls_back_to_discovered_pack(capsys, fake_remote, monkeypatch, tmp_path):
+    from cineforge import skills
+
+    pack = make_skill_pack(tmp_path / "host", "2.64")
+    monkeypatch.delenv("CINEFORGE_SKILL_PACK")
+    monkeypatch.setattr(skills, "DEFAULT_ROOTS", (pack,))
+    code, out = run(capsys, "update", "--check")
+    report = json.loads(out)
+    assert report["current"] == "2.64" and "warning" not in report
+
+
+def test_use_default_removes_pointer(capsys):
+    make_skill_pack(skill_store.pack_dir("2.63"), "2.63")
+    run(capsys, "use", "2.63")
+    code, out = run(capsys, "use", "--default")
+    assert code == 0 and skill_store.read_pointer() is None
