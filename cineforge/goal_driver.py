@@ -170,11 +170,13 @@ def _external(project: Any, goal: dict[str, Any], assessment: dict[str, Any], st
 
 def drive(root: Path, *, max_actions: int = MAX_ACTIONS) -> dict[str, Any]:
     from .pipeline import Project
+    from .project_skills import require_pack
 
     root = Path(root)
     goal = contract.read(root)
     if goal is None:
         raise contract.GoalError('no goal: run `cineforge goal set` first')
+    require_pack(root, allow_mock=goal['kind'] == 'text_storyboard')
     empty = {'unmet': [], 'evidence': {}}
     try:
         lock = attempts.project_lock(root)

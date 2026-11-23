@@ -21,6 +21,9 @@ def _tool(name: str) -> str:
 
 def render(project: Path, plan: dict[str, Any], *, output: str = 'edit/render.mp4',
            size: tuple[int, int] | None = None) -> Path:
+    from .project_skills import require_pack
+
+    require_pack(project)
     ffmpeg = _tool('ffmpeg')
     width, height = size or (int(plan['width']), int(plan['height']))
     fps = int(plan.get('fps', 24))

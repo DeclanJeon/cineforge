@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Any
 
 from . import execution_plan
+from .project_skills import LOCK, require_pack
 
 JOB_KINDS = ('image', 'video_cut', 'ost', 'bgm', 'sfx', 'dialogue')
 PROVIDER_OF = {'ost': 'suno', 'bgm': 'suno', 'sfx': 'elevenlabs', 'dialogue': 'fish_audio',
@@ -43,6 +44,8 @@ def binding(project: Path) -> str:
     names = ['project.json', 'authority.json', 'plan.json', 'selection.json',
              'ssot/scene.json', 'ssot/audio.json', 'ssot/camera.json', 'ssot/motion.json',
              'assets/sound_plan.json', 'assets/video_prompts.json', 'assets/asset_registry.json']
+    if (project / LOCK).is_file():
+        names.append(LOCK)
     if (project / execution_plan.PLAN).is_file():
         names += [execution_plan.PLAN, execution_plan.APPROVAL]
     digest = hashlib.sha256()
@@ -187,6 +190,7 @@ def _check_quotes(plan: dict[str, Any], jobs: tuple[Job, ...], quotes: dict[str,
 
 def write_envelope(project: Path, stage: str, jobs: tuple[Job, ...], *, note: str = '',
                    quotes: dict[str, Any] | None = None) -> Path:
+    pack = require_pack(project)
     require_authorized(project, jobs)
     plan = execution_plan.read(project)
     scope = {key: authority(project).get(key) for key in ('execution', 'spend_ceiling', 'providers')}
@@ -208,6 +212,8 @@ def write_envelope(project: Path, stage: str, jobs: tuple[Job, ...], *, note: st
                'jobs': [{'job_id': job.job_id, 'kind': job.kind, 'provider': job.provider, 'tool': job.tool,
                          'inputs': dict(job.inputs), 'prompt': job.prompt, 'params': dict(job.params),
                          'idempotency_key': job.idempotency_key, 'depends_on': list(job.depends_on)} for job in jobs]}
+    if pack is not None:
+        payload['skill_pack'] = pack.binding.identity()
     path = project / 'jobs' / f'{stage}.json'
     path.parent.mkdir(parents=True, exist_ok=True)
     if plan is not None:
@@ -233,11 +239,14 @@ def load_envelope(project: Path, stage: str) -> dict[str, Any]:
 
 
 def record_results(project: Path, stage: str, results: list[dict[str, Any]], *, runner_meta: str = '') -> Path:
+    pack = require_pack(project)
     envelope = load_envelope(project, stage)
     known = {job['job_id']: job for job in envelope['jobs']}
     path = project / 'receipts' / f'{stage}.json'
     receipt = json.loads(path.read_text(encoding='utf-8')) if path.is_file() else {
         'schema_version': 1, 'stage': stage, 'binding': envelope['binding'], 'results': {}}
+    if pack is not None:
+        receipt['skill_pack'] = pack.binding.identity()
     if receipt['binding'] != envelope['binding']:
         raise JobError('receipt_binding_mismatch')
     for item in results:

@@ -1,39 +1,39 @@
-# 제작 파이프라인 정의 — 단계(stage), 담당 스킬(route), 산출물, 게이트, 가중치, 엔진
-# skills: contents-production-skills 저장소의 스킬 이름, route: creative-production/references/routing.csv 의 route_id
+# 제작 파이프라인 정의 — 단계, 산출물, 게이트, 가중치, 엔진
+# 담당 스킬과 제작 라우트는 장착한 스킬팩 매니페스트에서 읽는다.
 # engine: 설계서의 16개 엔진 번호(E01~E16), layer: 6개 추가 계층(L1~L6)
 version: 1.0.0
 stages:
-  - {id: S00_intake, ko: 요구사항 접수·분석, weight: 3, engine: [E01], skills: [creative-production], route: null,
+  - {id: S00_intake, ko: 요구사항 접수·분석, weight: 3, engine: [E01],
      outputs: [intake.json], tasks: [parse_request, detect_inputs, decide_missing]}
-  - {id: S01_selection, ko: 콘셉트 선택(대화형), weight: 4, engine: [E02], skills: [concept-intake-design], route: R33,
+  - {id: S01_selection, ko: 콘셉트 선택(대화형), weight: 4, engine: [E02],
      outputs: [selection.json], tasks: [ask_axes, resolve_defaults, lock_selection]}
-  - {id: S02_concept, ko: 콘셉트 조합·적합성·평가, weight: 5, engine: [E03, E04], layer: [L1], skills: [concept-intake-design], route: R33,
+  - {id: S02_concept, ko: 콘셉트 조합·적합성·평가, weight: 5, engine: [E03, E04], layer: [L1],
      outputs: [concept.json, ssot/concept.json], tasks: [combine, compatibility_check, evaluate, direction_rules]}
-  - {id: S03_plan, ko: 제작 기획안, weight: 8, engine: [E05, E06, E07, E09, E11], skills: [developing-video-synopses, orchestrating-video-preproduction], route: R05,
+  - {id: S03_plan, ko: 제작 기획안, weight: 8, engine: [E05, E06, E07, E09, E11],
      outputs: [plan.json, plan.md], tasks: [synopsis, hook, timeline, scenes_cuts, characters, production_spec, preflight_checks]}
-  - {id: G1_plan_review, ko: 기획안 검수 게이트, weight: 2, gate: true, layer: [L1], skills: [creative-production], route: null,
+  - {id: G1_plan_review, ko: 기획안 검수 게이트, weight: 2, gate: true, layer: [L1],
      outputs: [reviews/plan_review.json], tasks: [auto_review, user_accept]}
-  - {id: S04_story, ko: 대본·스토리 SSOT, weight: 8, engine: [E05, E08], skills: [developing-video-synopses, video-production-assets], route: R13,
+  - {id: S04_story, ko: 대본·스토리 SSOT, weight: 8, engine: [E05, E08],
      outputs: [ssot/story.json, script.md], tasks: [beats, screenplay, dialogue_density]}
-  - {id: S05_character_world, ko: 캐릭터·세계관 SSOT, weight: 8, engine: [E06, E07, E12], skills: [designing-video-character-sheets, designing-character-personas], route: R03,
+  - {id: S05_character_world, ko: 캐릭터·세계관 SSOT, weight: 8, engine: [E06, E07, E12],
      outputs: [ssot/character.json, ssot/world.json], tasks: [cast_bible, persona, wardrobe, world_rules, props, locations]}
-  - {id: S06_storyboard, ko: 연출·스토리보드·타이밍, weight: 10, engine: [E09, E10, E11], skills: [storyboarding-video, camera-spatial-design, animatic-direction, silent-visual-storytelling], route: R10,
+  - {id: S06_storyboard, ko: 연출·스토리보드·타이밍, weight: 10, engine: [E09, E10, E11],
      outputs: [ssot/scene.json, ssot/camera.json, ssot/motion.json], tasks: [scene_states, camera_specs, motion_specs, timing]}
-  - {id: S07_assets, ko: 에셋·프롬프트·사운드 큐 시트, weight: 10, engine: [E12, E13], skills: [video-production-assets, ai-camera-control, creative-production], route: R13,
+  - {id: S07_assets, ko: 에셋·프롬프트·사운드 큐 시트, weight: 10, engine: [E12, E13],
      outputs: [ssot/audio.json, assets/asset_registry.json, assets/frames.json, assets/image_prompts.json, assets/video_prompts.json, assets/sound_cue_sheet.json], tasks: [asset_registry, start_end_frames, image_prompts, video_prompts, sound_cue_sheet]}
-  - {id: G2_preproduction_review, ko: 프리프로덕션 검수(연속성·제약·권리), weight: 4, gate: true, layer: [L1, L3, L5], skills: [video-production-assets], route: null,
+  - {id: G2_preproduction_review, ko: 프리프로덕션 검수(연속성·제약·권리), weight: 4, gate: true, layer: [L1, L3, L5],
      outputs: [reviews/preproduction_review.json], tasks: [continuity_rules, constraint_rules, rights_safety, cost_estimate]}
-  - {id: S08_generation, ko: 이미지·영상·음성 생성, weight: 20, engine: [E13, E14], layer: [L4], requires_authority: execution, skills: [higgsfield-generate, creative-production], route: R28,
+  - {id: S08_generation, ko: 이미지·영상·음성 생성, weight: 20, engine: [E13, E14], layer: [L4], requires_authority: execution,
      outputs: [handoffs/S08_generation.json], tasks: [image_generation, video_generation, audio_generation, take_selection]}
-  - {id: S09_edit, ko: 편집·사운드·합성, weight: 8, engine: [E15], requires_authority: edit, skills: [video-production-assets], route: R31,
+  - {id: S09_edit, ko: 편집·사운드·합성, weight: 8, engine: [E15], requires_authority: edit,
      outputs: [handoffs/S09_edit.json], tasks: [assembly, sound_mix, color, subtitles]}
-  - {id: S10_qa, ko: 품질 검수, weight: 6, engine: [E16], layer: [L3], skills: [video-production-assets, creative-production], route: R20,
+  - {id: S10_qa, ko: 품질 검수, weight: 6, engine: [E16], layer: [L3],
      outputs: [reviews/final_qa.json], tasks: [continuity_qa, camera_qa, sync_qa, whole_film_qa]}
-  - {id: G3_user_review, ko: 사용자 최종 검수, weight: 1, gate: true, skills: [creative-production], route: null,
+  - {id: G3_user_review, ko: 사용자 최종 검수, weight: 1, gate: true,
      outputs: [reviews/user_review.json], tasks: [user_accept]}
-  - {id: S11_delivery, ko: 최종 출력·이력, weight: 2, skills: [recording-production-history], route: R27,
+  - {id: S11_delivery, ko: 최종 출력·이력, weight: 2,
      outputs: [final/], tasks: [package, history]}
-  - {id: S12_feedback, ko: 성과 피드백, weight: 1, layer: [L6], skills: [topic-demand-selection, searching-social-media], route: null,
+  - {id: S12_feedback, ko: 성과 피드백, weight: 1, layer: [L6],
      outputs: [feedback.json], tasks: [metrics_import, hypothesis]}
 engines:
   E01: {ko: 트렌드·소재 발굴 엔진, area: 기획, skills: [topic-demand-selection, searching-social-media]}

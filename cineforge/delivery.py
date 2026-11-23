@@ -11,7 +11,7 @@ from . import execution_plan
 from .edit_plan import build as build_plan
 from .final_qa import inspect
 from .gate import check as gate_check
-from .skills import pins as skill_pins
+from .project_skills import provenance, require_pack
 from .subtitles import to_srt
 
 
@@ -24,6 +24,7 @@ def _sha(path: Path) -> str:
 
 
 def deliver(project: Path, *, video: Path | None = None, burn: bool = False) -> dict[str, Any]:
+    pack = require_pack(project)
     plan = build_plan(project)
     plan_path = project / 'edit/edit_plan.json'
     plan_path.parent.mkdir(parents=True, exist_ok=True)
@@ -67,7 +68,7 @@ def deliver(project: Path, *, video: Path | None = None, burn: bool = False) -> 
               'width': int(plan['width']), 'height': int(plan['height']), 'fps': int(plan['fps']),
               'subtitles': str(final_srt.relative_to(project)) if final_srt.is_file() else None,
               'burned_in': burn, 'gate': gate.as_dict(), 'final_qa': report['status'],
-              'ai_disclosure': True, 'skills': skill_pins()}
+              'ai_disclosure': True, 'skills': {}, 'skill_pack': provenance(pack)}
     delivery = project / 'final/delivery.json'
     delivery.write_text(json.dumps(bundle, ensure_ascii=False, indent=2), encoding='utf-8')
     return bundle

@@ -1,6 +1,6 @@
 # 07. 단계 계약(Stage Contracts)
 
-원본: `cineforge/data/pipeline.yaml`. 단계마다 입력·출력·담당 스킬·route·필요 권한·작업 목록·가중치를 고정한다. 진행률은 가중치, 작업률은 작업 수로 계산한다(09 문서).
+엔진 원본은 `cineforge/data/pipeline.yaml`이다. 단계와 입력·출력·필요 권한·작업 목록·가중치를 고정한다. 담당 스킬과 route는 바인딩된 스킬팩 `manifest.json`에서 읽는다. 아래 담당·route 열은 레거시 매핑 예시다. 계약은 [스킬팩 독립 배포 설계](superpowers/specs/2026-11-24-skill-pack-integration-design.md)를 참조한다. 진행률은 가중치, 작업률은 작업 수로 계산한다(09 문서).
 
 | 단계 | 이름 | 가중치 | 엔진 | 계층 | route | 담당 스킬 | 필요 권한 | 출력 | 작업 |
 |---|---|---|---|---|---|---|---|---|---|

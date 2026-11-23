@@ -9,9 +9,11 @@ from pathlib import Path
 from typing import Any
 
 from cineforge import __version__
-from cineforge.data_loader import data_path, load
+from cineforge.data_loader import data_path
 from cineforge.pipeline import InvalidCutRevisionError, InvalidProjectIdError, Project
 from cineforge.progress import render
+from cineforge.project_skills import display_pipeline, project_binding
+from cineforge.skill_pack_manifest import SkillPackError
 from cineforge.providers.router import MODES, build_router
 from cineforge.selection import interactive, merge, new_selection, parse_set_flags, summarize, load_json
 from cineforge.intake import analyze
@@ -121,7 +123,7 @@ def cmd_new(args: argparse.Namespace) -> int:
     intake = project.read("intake.json")
     if intake is None:
         print("\n요구사항 분석에 호스트 에이전트 응답이 필요합니다. 응답 파일을 쓴 뒤 `cineforge select` → `cineforge run`으로 이어가세요.")
-        print(render(project.progress(), load("pipeline.yaml")))
+        print(render(project.progress(), display_pipeline(project_binding(project.root))))
         return 0
     print("\n[요구사항 분석 — 9개 판단 요소]")
     for fid, f in intake["factors"].items():
@@ -160,7 +162,7 @@ def _run_and_report(project: Project, until: str | None) -> int:
     prog = project.run(until=until, echo=print)
     share(project.root)
     print()
-    print(panel(prog, load("pipeline.yaml"), color=supports_color()))
+    print(panel(prog, display_pipeline(project_binding(project.root)), color=supports_color()))
     concept = project.read("concept.json")
     if concept:
         c, e = concept["concept"], concept["evaluation"]
@@ -314,7 +316,7 @@ def cmd_status(args: argparse.Namespace) -> int:
         color = supports_color()
         print(banner(color=color))
         print()
-        print(panel(prog, load("pipeline.yaml"), color=color))
+        print(panel(prog, display_pipeline(project_binding(project.root)), color=color))
     return 0
 
 
@@ -833,6 +835,9 @@ def main(argv: list[str] | None = None) -> int:
 
             ensure_allowed(Path(target), args.command)
         return int(args.func(args) or 0)
+    except SkillPackError as exc:
+        print(f"스킬팩 오류: {exc}", file=sys.stderr)
+        return 2
     except (FileExistsError, FileNotFoundError, KeyError, ValueError, PermissionError) as exc:
         print(f"오류: {exc}", file=sys.stderr)
         return 1

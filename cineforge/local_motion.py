@@ -245,6 +245,9 @@ def _run(args: list[str], cwd: Path) -> subprocess.CompletedProcess:
 
 
 def render(root: Path, font: Path, *, reviewed_hash: str | None = None) -> dict:
+    from .project_skills import require_pack
+
+    require_pack(root)
     plan_path = root/'plan.json'
     raw = plan_path.read_bytes()
     recipe, cuts = compile_plan(json.loads(raw))
@@ -477,6 +480,9 @@ def render(root: Path, font: Path, *, reviewed_hash: str | None = None) -> dict:
 
 
 def deliver(root: Path, approved_hash: str) -> dict:
+    from .project_skills import provenance, require_pack
+
+    pack = require_pack(root)
     report = json.loads((root/'qa/motion-report.json').read_text())
     video = root/'qa/motion-preview.mp4'
     if len(approved_hash) != 64 or approved_hash != report['sha256'] or approved_hash != _digest(video) or report['plan_sha256'] != _digest(root/'plan.json') or report['decode'] != 'pass':
@@ -489,6 +495,6 @@ def deliver(root: Path, approved_hash: str) -> dict:
         if _digest(temp) != approved_hash:
             raise ValueError('motion preview changed during delivery')
         temp.replace(target/'motion.mp4')
-    result = {**report,'human_review':True,'video':'final/motion.mp4'}
+    result = {**report,'human_review':True,'video':'final/motion.mp4','skill_pack':provenance(pack)}
     (target/'motion-delivery.json').write_text(json.dumps(result,indent=2))
     return result

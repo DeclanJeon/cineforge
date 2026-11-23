@@ -23,5 +23,6 @@ CineForge는 "요구사항 한 번 → 선택 한 번 → 이후 논스톱" 영�
 | 17 | [스킬 업그레이드 계획](17-skills-upgrade-plan.md) | contents-production-skills 2.61 변경 |
 | 18 | [레퍼런스 조사](18-reference-study.md) | Pixelle-Video, Jellyfish, waoowaoo |
 | 19 | [엔진 카탈로그](19-engine-catalog.md) | 16개 엔진, 6개 계층과 구현 상태 |
+| 20 | [스킬팩 독립 배포 설계](superpowers/specs/2026-11-24-skill-pack-integration-design.md) | 팩 매니페스트 계약·프로젝트 버전 고정·전환 기준 |
 
 데이터 정본: `cineforge/data/taxonomy.yaml`, `rules.yaml`, `pipeline.yaml`, `schemas/*.schema.json`. 문서와 데이터가 다르면 데이터가 우선한다.

@@ -96,11 +96,15 @@ def snapshot(root) -> dict[str, Any]:
     import json
     from pathlib import Path
 
-    from .data_loader import load
+    from .project_skills import display_pipeline, project_binding
+    from .skill_pack_manifest import PackBinding
 
     base = Path(root)
     progress = json.loads((base / "progress.json").read_text(encoding="utf-8"))
-    pipeline = load("pipeline.yaml")
+    saved = project_binding(base)
+    pipeline = display_pipeline(saved)
+    pack = ({**saved.identity(), "mode": "bound"} if isinstance(saved, PackBinding)
+            else {"mode": "mock/unbound" if saved == "mock" else "legacy/unpinned"})
     names = {s["id"]: s for s in pipeline["stages"]}
     task_rate, progress_rate = rates(progress, pipeline)
     stages = {}
@@ -112,7 +116,7 @@ def snapshot(root) -> dict[str, Any]:
     return {"schema_version": 1, "project_id": progress["project_id"], "project_root": str(base.resolve()),
             "current_stage": progress.get("current_stage"), "phase": production_phase(progress.get("current_stage")), "progress_rate": progress_rate,
             "task_rate": task_rate, "updated_at": progress.get("updated_at"), "next_action": next_action(progress, pipeline),
-            "blocked": blockers(progress), "stages": stages}
+            "blocked": blockers(progress), "stages": stages, "skill_pack": pack}
 
 
 def share(root) -> "Path":

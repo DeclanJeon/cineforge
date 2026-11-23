@@ -88,10 +88,30 @@ def test_request_to_delivery_with_user_gates(tmp_path, capsys, monkeypatch):
     assert main(['accept', str(p.root), 'final']) == 0
     code, r = state(p.root, capsys)
     assert (code, r['state']) == (0, 'satisfied'), r
+    saved = p.read('skill_pack.lock.json')
+    delivered = p.read('final/delivery.json')['skill_pack']
+    for field in ('name', 'version', 'contract_version', 'manifest_sha256', 'inventory_sha256'):
+        assert delivered[field] == saved[field]
+    assert delivered['verified_usage'] == 'unconfirmed'
     # a replaced render invalidates delivery evidence and approval
     (p.root / 'edit/render.mp4').write_bytes((p.root / 'edit/render.mp4').read_bytes() + b'x')
     code, r = state(p.root, capsys)
     assert code != 0 and 'render_differs_from_final' in r['unmet']
+
+
+def test_goal_drive_wrong_pack_does_not_create_an_attempt(tmp_path, monkeypatch, capsys):
+    from conftest import make_skill_pack
+
+    project = new_project(tmp_path)
+    project.grant(execution=True)
+    project.run(until='G2_preproduction_review')
+    assert project.progress()['stages']['G2_preproduction_review']['status'] == 'done'
+    b = make_skill_pack(tmp_path / 'different-pack', 'other')
+    monkeypatch.setenv('CINEFORGE_SKILL_PACK', str(b))
+    capsys.readouterr()
+    assert main(['goal', 'drive', str(project.root), '--json']) == 2
+    assert 'restore and select' in capsys.readouterr().err
+    assert not (project.root / 'goal/attempts').exists()
 
 
 def test_concurrent_drive_is_busy(tmp_path, capsys):

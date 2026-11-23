@@ -6,7 +6,8 @@ import pytest
 
 from cineforge.cli import main
 from cineforge.playback import PlaybackError, submit
-from cineforge.skills import REQUIRED, check
+from cineforge.skills import check
+from conftest import make_skill_pack
 
 
 def _delivery(tmp_path):
@@ -52,25 +53,16 @@ def test_playback_cli_requires_delivery_and_valid_report(tmp_path, capsys):
 
 def test_skill_pack_check_reports_missing_and_pins(tmp_path):
     report = check(tmp_path / 'none')
-    assert report['available'] is False and 'skill_pack' not in report['missing']
-    assert report['missing']
-    pack = tmp_path / 'pack'
-    for name in REQUIRED:
-        target = pack / name
-        target.parent.mkdir(parents=True, exist_ok=True)
-        target.write_bytes(name.encode())
+    assert report['available'] is False and report['status'] == 'missing'
+    pack = make_skill_pack(tmp_path / 'pack')
     report = check(pack)
-    assert report['available'] is True and set(report['pins']) == set(REQUIRED)
-    assert report['pins']['creative-production/SKILL.md'] == hashlib.sha256(REQUIRED[0].encode()).hexdigest()
+    assert report['available'] is True and report['status'] == 'ready'
+    assert report['pins']['creative-production/SKILL.md'] == hashlib.sha256(b'fixture').hexdigest()
 
 
 def test_skills_cli_exit_codes(tmp_path, capsys):
     assert main(['skills', '--root', str(tmp_path / 'none')]) == 1
-    pack = tmp_path / 'pack'
-    for name in REQUIRED:
-        target = pack / name
-        target.parent.mkdir(parents=True, exist_ok=True)
-        target.write_bytes(b'x')
+    pack = make_skill_pack(tmp_path / 'pack')
     capsys.readouterr()
     assert main(['skills', '--root', str(pack)]) == 0
     assert json.loads(capsys.readouterr().out)['available'] is True

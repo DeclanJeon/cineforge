@@ -6,7 +6,7 @@
 콘셉트 조합부터 기획안·SSOT·에셋·검수·생성 인계까지 이어 주는 대화형 AI 영상 제작 오케스트레이터 CLI
 
 ![Python](https://img.shields.io/badge/python-3.10%2B-3776AB?logo=python&logoColor=white)
-![Version](https://img.shields.io/badge/version-0.1.3-6E56CF)
+![Version](https://img.shields.io/badge/version-0.1.4-6E56CF)
 ![Tests](https://img.shields.io/badge/tests-51%20passed%20%C2%B7%202%20live%20opt--in-2EA44F)
 ![Decision](https://img.shields.io/badge/decision-Jev%201.14%20(OpenRouter)-0A7AFF)
 ![Generation](https://img.shields.io/badge/plan%20writer-GPT--6.2%20Sol-111111)
@@ -172,7 +172,7 @@ cineforge deliver <project>                     # final/<project>.mp4 + .srt + d
 ## 흡수한 검증 기능 (SceneWeaver)
 
 - `cineforge qa-playback <project> --file report.json`: 납품 파일 해시에 묶인 **사람 재생 검수 기록**. `reviewer_reported`로만 남고 게이트·승인을 바꾸지 않는다.
-- `cineforge skills`: 설치된 스킬팩의 실행 도구 8개를 찾아 해시를 확인한다. `deliver`는 이 핀을 `delivery.json.skills`에 기록한다. **스킬팩을 제거하면 이 핀이 비므로, CineForge는 `contents-production-skills` 설치를 전제로 한다** (경로 재정의: `CINEFORGE_SKILL_PACK`).
+- `cineforge skills [--root PATH]`: 설치된 팩의 CineForge 계약과 파일 해시를 검사합니다. 납품에는 프로젝트에 고정한 팩 정보를 `delivery.json.skill_pack`에 남기며, 파일 해시를 도구 사용 증거로 간주하지 않습니다.
 - 전체 대기·복구·영수증 규칙은 [제작 완결 설계](docs/superpowers/specs/2026-11-20-production-closure-design.md)를 따른다.
 
 ## 사운드 디자인과 MCP
@@ -224,7 +224,7 @@ flowchart TD
 ```bash
 python -m venv .venv && . .venv/bin/activate
 pip install -e ".[dev]"
-cineforge --version   # cineforge 0.1.3
+cineforge --version   # cineforge 0.1.4
 ```
 
 코드 모션 컷의 승인·접수·조립·재생 검수는 [코드 모션 납품 절차](docs/code-motion.md)를 따릅니다.
@@ -340,12 +340,19 @@ S12 성과 피드백                ⤼ skipped         0/2    -     topic-deman
 
 ## 스킬 연동
 
-CineForge는 [contents-production-skills](https://github.com/DeclanJeon/contents-production-skills)(2.61, 브랜치 `feat/orchestration`)와 짝을 이룹니다.
+새 제작에는 CineForge 계약 v1을 선언하는 [contents-production-skills](https://github.com/DeclanJeon/contents-production-skills) 설치가 필요합니다. 팩 원본 또는 팩 설치기로 복사한 스킬 루트를 장착합니다.
 
-- **`concept-intake-design`**: 9개 판단 요소를 한 번에 묻고, 콘셉트를 조합·검사·평가해 콘셉트 패킷으로 넘기는 새 스킬입니다. 분류 체계와 규칙은 `cineforge taxonomy --export … --with-rules`로 동기화합니다.
-- **라우팅 R33**: `creative-production` 2.4의 Step 0 사전 인테이크가 R33으로 이 스킬을 부릅니다.
-- **`creative-production/references/skill-map.md`**: 단계별 담당 스킬, 논스톱 규칙, CineForge 인계 계약을 정리한 문서입니다.
-- **인계 패킷**: 단계마다 `handoffs/<단계>.json`에 담당 스킬·입력·권한·비용 한도를 담습니다. 실제 이미지·영상 생성과 편집은 스킬이 실행하고(ADR-005), CineForge는 증거 파일로 완료를 기록합니다.
+```bash
+# 팩 저장소에서: 필요하면 임시 또는 버전별 루트에 복사 설치
+python scripts/install_package.py --skills-root "$HOME/skill-packs/production-v1"
+export CINEFORGE_SKILL_PACK="$HOME/skill-packs/production-v1"
+cineforge skills
+```
+
+- 지원되는 기본 스킬 루트에 설치하면 자동으로 찾습니다. 서로 다른 팩이 여러 개거나 스킬별 심볼릭 링크로 설치했다면 `CINEFORGE_SKILL_PACK`에 사용할 팩의 실제 루트를 지정하세요.
+- 제작 단계의 담당 스킬·라우트·참조는 설치된 팩이 정합니다. 호환 팩을 바꾸면 새 프로젝트부터 적용되고 CLI 재설치는 필요하지 않습니다.
+- 기존 프로젝트는 `skill_pack.lock.json`의 팩 버전과 해시를 유지합니다. 팩이 없어도 `status`는 보이지만 제작 재개에는 잠금과 같은 팩을 복원해 장착해야 합니다. 잠금 도입 이전 프로젝트는 `legacy/unpinned`로 계속 동작합니다.
+- 팩 없는 `--provider mock`은 오프라인 구조 확인용입니다. 미바인딩 프로젝트에서는 외부 작업과 납품을 실행할 수 없습니다. 설치·진단만으로 팩 코드를 실행하거나 권한을 부여하지 않습니다.
 
 ## 안전·비용 원칙
 

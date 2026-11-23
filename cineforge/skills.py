@@ -1,45 +1,71 @@
-"""Skill-pack readiness: pin the installed tool bytes a delivery relied on."""
+"""Locate and diagnose installed CineForge pack adapters without executing them."""
 from __future__ import annotations
 
-import hashlib
 import os
+from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
 
-REQUIRED = (
-    'creative-production/SKILL.md',
-    'video-production-assets/scripts/render_sequence.py',
-    'video-production-assets/scripts/sequence_media.py',
-    'video-production-assets/scripts/sequence_contract.py',
-    'video-production-assets/scripts/validate_sequence.py',
-    'video-production-assets/scripts/update_project.py',
-    'camera-spatial-design/scripts/spatial_spec.py',
-    'recording-production-history/scripts/production_history.py',
-)
+from .skill_pack_manifest import PackBinding, SkillPackError, read_manifest
+
 DEFAULT_ROOTS = (Path.home() / '.codex/skills', Path.home() / '.pi/agent/skills', Path.home() / '.agents/skills')
+MANIFESTS = ('manifest.json', 'video-production-assets/support/manifest.json')
 
 
-def discover() -> Path | None:
-    override = os.environ.get('CINEFORGE_SKILL_PACK')
-    candidates = [Path(override)] if override else list(DEFAULT_ROOTS)
-    for root in candidates:
-        if (root / 'creative-production/SKILL.md').is_file() and (root / 'video-production-assets').is_dir():
-            return root
-    return None
+@dataclass(frozen=True)
+class InstalledPack:
+    root: Path
+    binding: PackBinding
+
+    def provenance(self) -> dict[str, str | int]:
+        return {**self.binding.identity(), 'root': str(self.root)}
 
 
-def _sha(path: Path) -> str:
-    return hashlib.sha256(path.read_bytes()).hexdigest()
+def explicit_root() -> str | None:
+    return os.environ.get('CINEFORGE_SKILL_PACK')
 
 
-def check(root: Path | None = None) -> dict[str, Any]:
-    pack = Path(root) if root else discover()
-    if pack is None:
-        return {'available': False, 'root': None, 'missing': ['skill_pack'], 'pins': {}}
-    missing = [name for name in REQUIRED if not (pack / name).is_file()]
-    pins = {} if missing else {name: _sha(pack / name) for name in REQUIRED}
-    return {'available': not missing, 'root': str(pack), 'missing': missing, 'pins': pins}
+def discover(root: Path | None = None, *, expected: PackBinding | None = None) -> InstalledPack:
+    override = explicit_root()
+    if root is None and override is not None:
+        if not override.strip():
+            raise SkillPackError('invalid', 'CINEFORGE_SKILL_PACK is empty')
+        root = Path(override).expanduser()
+    candidates = (root,) if root is not None else DEFAULT_ROOTS
+    installed: dict[tuple[str, str], InstalledPack] = {}
+    failure = None
+    for candidate in candidates:
+        try:
+            resolved = candidate.resolve()
+            relative = next((name for name in MANIFESTS if (resolved / name).exists()
+                             or (resolved / name).is_symlink()), None)
+            if relative is None:
+                continue
+            binding = read_manifest(resolved, relative)
+        except (RuntimeError, OSError) as exc:
+            failure = SkillPackError('invalid', f'{candidate}: {exc}')
+            continue
+        except SkillPackError as exc:
+            failure = exc
+            continue
+        if expected is None or binding == expected:
+            installed.setdefault((binding.manifest_sha256, binding.inventory_sha256), InstalledPack(resolved, binding))
+    if len(installed) > 1:
+        raise SkillPackError('ambiguous', 'set CINEFORGE_SKILL_PACK to one pack root')
+    if installed:
+        return next(iter(installed.values()))
+    if expected is not None:
+        detail = f'need {expected.name} {expected.version} ({expected.manifest_sha256}); restore and select it with CINEFORGE_SKILL_PACK'
+        raise SkillPackError('invalid', f'{detail}: {failure}' if failure else detail)
+    if failure is not None:
+        raise failure
+    raise SkillPackError('missing', f'no compatible manifest at {root or "the host skill roots"}; set CINEFORGE_SKILL_PACK')
 
 
-def pins(root: Path | None = None) -> dict[str, str]:
-    return check(root)['pins']
+def check(root: Path | None = None) -> dict[str, object]:
+    try:
+        pack = discover(root)
+    except SkillPackError as exc:
+        return {'status': exc.status, 'available': False, 'root': str(root) if root else explicit_root(),
+                'missing': ['skill_pack'] if exc.status == 'missing' else [], 'pins': {}, 'error': str(exc)}
+    return {'status': 'ready', 'available': True, 'missing': [], **pack.provenance(),
+            'pins': pack.binding.files}

@@ -13,6 +13,9 @@ from cineforge.data_loader import load
 from cineforge.intake import analyze
 from cineforge.planner import build_payload, generate_plan
 from cineforge.progress import rates
+from cineforge.project_skills import LOCK, LOCK_HASH, MODE, binding_hash, initial_binding, lock_text, require_pack
+from cineforge.skill_handoff import CRAFT_STAGES, check_handoff_identity, craft_facts, legacy_guidance, pack_fields
+from cineforge.skill_pack_manifest import SkillPackError
 from cineforge.providers.base import AgentInputRequired, ProviderError
 from cineforge.providers.router import ProviderRouter, build_router
 from cineforge.render import plan_markdown
@@ -87,6 +90,7 @@ class Project:
         root = Path(parent) / pid
         if (root / "project.json").exists():
             raise FileExistsError(f"이미 있는 프로젝트: {root}")
+        binding = initial_binding(provider_mode)
         root.mkdir(parents=True, exist_ok=True)
         tax = Taxonomy()
         meta = {"project_id": pid, "created_at": now(), "request": request, "provider_mode": provider_mode,
@@ -94,7 +98,12 @@ class Project:
         if cut_revision is not None:
             scope, preserve = cut_revision
             meta["cut_revision"] = {"scope": scope, "preserve": preserve}
-        (root / "project.json").write_text(json.dumps(meta, ensure_ascii=False, indent=2), encoding="utf-8")
+        meta[MODE] = "bound" if binding is not None else "mock"
+        if binding is not None:
+            pinned = lock_text(binding)
+            atomic_text(root / LOCK, pinned)
+            meta[LOCK_HASH] = binding_hash(pinned)
+        atomic_text(root / "project.json", json.dumps(meta, ensure_ascii=False, indent=2))
         project = cls(root, router=router or build_router(provider_mode, io_dir=root / "agent_io"), tax=tax)
         project.write("authority.json", dict(DEFAULT_AUTHORITY), "authority")
         project.write("progress.json", project._initial_progress(), "progress")
@@ -174,6 +183,7 @@ class Project:
 
     # ---------- 실행 루프 ----------
     def run(self, until: str | None = None, echo: Callable[[str], None] | None = None) -> dict[str, Any]:
+        pack = require_pack(self.root, allow_mock=True)
         echo = echo or (lambda _m: None)
         prog = self.progress()
         runners: dict[str, Callable[[dict[str, Any]], bool]] = {
@@ -199,6 +209,13 @@ class Project:
                     self.complete(sid, list(receipt["outputs"]))
                     prog = self.progress()
                 elif status == "waiting_external":
+                    path = f"handoffs/{sid}.json"
+                    handoff = self.read(path)
+                    if pack is not None and handoff is not None:
+                        check_handoff_identity(handoff, pack)
+                        if handoff["skill_pack"]["root"] != str(pack.root):
+                            handoff["skill_pack"]["root"] = str(pack.root)
+                            self.write(path, handoff, "handoff")
                     from .execution_plan import read as read_execution_plan
 
                     # Recover projects that entered scoped S08 before image preparation.
@@ -335,49 +352,31 @@ class Project:
 
     def _handoff(self, sid: str, extra: dict[str, Any] | None = None) -> dict[str, Any]:
         stage = next(s for s in self.pipeline["stages"] if s["id"] == sid)
+        pack = require_pack(self.root, allow_mock=sid not in EXTERNAL_STAGES)
         auth_key = stage.get("requires_authority")
-        packet = {"stage": sid, "route": stage.get("route"), "owner_skills": stage["skills"], "authority_required": auth_key,
+        packet = {"stage": sid, "authority_required": auth_key,
                   "authority_granted": bool(self.authority().get(auth_key)) if auth_key else True,
                   "inputs": [str(p.relative_to(self.root)) for p in sorted((self.root / "ssot").glob("*.json"))] + ["plan.json", "selection.json"],
-                  "outputs_expected": stage["outputs"], "packet": extra or {},
+                  "outputs_expected": stage["outputs"], "packet": dict(extra or {}),
                   "completion_command": f"cineforge complete {self.root} {sid} --evidence <파일...>"}
-        if sid in {'S06_storyboard', 'S07_assets', 'S08_generation', 'S09_edit', 'S10_qa'}:
-            meta = self.meta
-            request = meta.get('request', '')
-            realtime = re.search(r'실시간\s*3d|스크롤\s*(?:기반\s*)?모션|three\.js|scroll[- ]driven\s+motion|real[- ]time\s+3d', request, re.I)
-            motion = re.search(r'모션\s*그래픽|키네틱\s*타이포|(?:제품\s*)?ui\s*데모|motion\s+graphics?|kinetic\s+type|ui\s+demo|(?:motion\s+design|code[- ]rendered)\s+showreel', request, re.I)
-            choice = (self.read('plan.json') or {}).get('production_spec', {}).get('motion_recipe')
-            if motion or realtime or choice:
-                packet['craft_refs'] = ['creative-production/references/motion-pipeline.md',
-                                        'video-production-assets/references/08b-code-motion-production.md',
-                                        'video-production-assets/assets/code-motion-brief-template.md']
-                if choice:
-                    packet['motion_recipe'] = choice
-                if brief := (self.read('plan.json') or {}).get('production_spec', {}).get('motion_brief'):
-                    packet['motion_brief'] = brief
-                if realtime or (choice and choice['recipe'] == 'realtime_3d'):
-                    packet['craft_refs'].append('open-3d-production/references/realtime-motion-direction.md')
-                packet['craft_instruction'] = ('현재 단계 작업 전에 craft_refs와 해당 오너 지침을 읽고 컷 상태·타이밍·실제 출력 검수에 반영. '
-                                               '참조 연결은 렌더러 선택이나 실행·과금 승인이 아님.')
-            if revision := meta.get("cut_revision"):
-                packet["cut_revision"] = revision
-                packet.setdefault("craft_refs", []).append(
-                    "video-production-assets/references/21-generated-video-qa-retry.md"
-                )
-                revision_instruction = {
-                    "S06_storyboard": "수정 범위·보존 조건을 해당 컷과 인접 편집 경계에 연결한다.",
-                    "S07_assets": "수정 대상과 보존할 참조 에셋을 구분한다.",
-                    "S08_generation": "기존 테이크를 먼저 비교하고, 생성 결함 수정은 승인 범위에서만 검토한다.",
-                    "S09_edit": "대상 구간의 최소 편집·합성·믹싱 변경과 보존할 요소를 기록한다.",
-                    "S10_qa": "수정 전후 버전과 시간 기준, 실제 재검수 및 미확인 결과를 기록한다. 부분 검사는 전편 검수가 아니다.",
-                }[sid]
-                packet["craft_instruction"] = " ".join(filter(None, (
-                    packet.get("craft_instruction"),
-                    "컷 수정 QA 참조를 읽는다. 인계는 자동 수정·실행·과금 승인이 아니다.",
-                    revision_instruction,
-                )))
-                if sid in EXTERNAL_STAGES:
-                    packet["inputs"].append("project.json")
+        facts, context = craft_facts(self.meta, self.read("plan.json") or {})
+        if pack is not None:
+            packet.update(pack_fields(pack, sid, facts))
+            packet["packet"].pop("enrich", None)
+        elif self.meta.get(MODE) != "mock":
+            route = load("legacy_skill_routes.yaml")[sid]
+            packet.update(route=route["route"], owner_skills=route["skills"])
+            if sid in CRAFT_STAGES:
+                packet.update(legacy_guidance(sid, facts))
+        else:
+            packet.update(route=None, owner_skills=[])
+            packet["packet"].pop("enrich", None)
+        if sid in CRAFT_STAGES:
+            packet.update(context)
+            if "cut_revision" in context and sid in EXTERNAL_STAGES:
+                packet["inputs"].append("project.json")
+        if pack is not None and sid in EXTERNAL_STAGES:
+            packet["inputs"].append(LOCK)
         if sid in EXTERNAL_STAGES:
             names = packet["inputs"] + (extra or {}).get("prompts", []) + list((extra or {}).get("images", {}).values())
             for previous in self.pipeline["stages"]:
@@ -493,6 +492,11 @@ class Project:
 
     def _external(self, prog: dict[str, Any], sid: str | None = None) -> bool:
         sid = sid or prog["current_stage"]
+        try:
+            require_pack(self.root)
+        except SkillPackError as exc:
+            self.set_stage(prog, sid, "blocked", str(exc))
+            return False
         stage = next(s for s in self.pipeline["stages"] if s["id"] == sid)
         extra = {"spend_ceiling": self.authority().get("spend_ceiling")}
         if sid == "S08_generation":
@@ -549,7 +553,7 @@ class Project:
             self.set_stage(prog, sid, "blocked", f"'{stage['requires_authority']}' 권한 필요 → `cineforge grant <프로젝트> {stage['requires_authority']}`"
                            " (사용자 승인·비용 한도). 인계 패킷: handoffs/" + sid + ".json")
             return False
-        self.set_stage(prog, sid, "waiting_external", f"호스트 에이전트가 {', '.join(stage['skills'])}로 실행 → 완료 후 `cineforge complete`")
+        self.set_stage(prog, sid, "waiting_external", f"호스트 에이전트가 {', '.join(packet['owner_skills'])}로 실행 → 완료 후 `cineforge complete`")
         return False
 
     def _g3(self, prog: dict[str, Any]) -> bool:
@@ -563,6 +567,7 @@ class Project:
     def complete(self, sid: str, evidence: list[str]) -> None:
         if sid not in EXTERNAL_STAGES:
             raise ValueError(f"{sid}는 외부 완료 대상이 아닙니다")
+        pack = require_pack(self.root)
         prog = self.progress()
         state = prog["stages"][sid]["status"]
         packet = self.read(f"handoffs/{sid}.json") or {}
@@ -576,6 +581,11 @@ class Project:
             raise ValueError(f"receipt inputs changed: {sid}")
         outputs = pins(self.root, evidence)
         receipt = {"stage": sid, "inputs": inputs, "outputs": outputs}
+        if pack is not None:
+            check_handoff_identity(packet, pack)
+            if LOCK not in inputs:
+                raise SkillPackError("invalid", f"handoff missing lock evidence: {sid}")
+            receipt["skill_pack"] = pack.binding.identity()
         if existing != receipt and (existing is not None or state == "done"):
             raise ValueError(f"receipt mismatch: {sid}")
         if state == "done":

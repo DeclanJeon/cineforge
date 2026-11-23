@@ -8,6 +8,7 @@ import shutil
 import subprocess
 from functools import partial
 
+from .project_skills import require_pack
 from .receipts import atomic_text
 
 
@@ -33,6 +34,7 @@ def generate(root, rows, limit, execute=None, supplied=None):
     import fcntl
     supplied = supplied or {}
     root = Path(root).resolve()
+    require_pack(root)
     directory = root/"assets"/"image_jobs"
     directory.mkdir(parents=True,exist_ok=True)
     jobs = {r["prompt_id"]:r for r in rows}

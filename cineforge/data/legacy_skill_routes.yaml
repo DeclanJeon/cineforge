@@ -1,0 +1,110 @@
+# Pre-manifest stage mappings, read only for legacy projects.
+{
+  "S00_intake": {
+    "skills": [
+      "creative-production"
+    ],
+    "route": null
+  },
+  "S01_selection": {
+    "skills": [
+      "concept-intake-design"
+    ],
+    "route": "R33"
+  },
+  "S02_concept": {
+    "skills": [
+      "concept-intake-design"
+    ],
+    "route": "R33"
+  },
+  "S03_plan": {
+    "skills": [
+      "developing-video-synopses",
+      "orchestrating-video-preproduction"
+    ],
+    "route": "R05"
+  },
+  "G1_plan_review": {
+    "skills": [
+      "creative-production"
+    ],
+    "route": null
+  },
+  "S04_story": {
+    "skills": [
+      "developing-video-synopses",
+      "video-production-assets"
+    ],
+    "route": "R13"
+  },
+  "S05_character_world": {
+    "skills": [
+      "designing-video-character-sheets",
+      "designing-character-personas"
+    ],
+    "route": "R03"
+  },
+  "S06_storyboard": {
+    "skills": [
+      "storyboarding-video",
+      "camera-spatial-design",
+      "animatic-direction",
+      "silent-visual-storytelling"
+    ],
+    "route": "R10"
+  },
+  "S07_assets": {
+    "skills": [
+      "video-production-assets",
+      "ai-camera-control",
+      "creative-production"
+    ],
+    "route": "R13"
+  },
+  "G2_preproduction_review": {
+    "skills": [
+      "video-production-assets"
+    ],
+    "route": null
+  },
+  "S08_generation": {
+    "skills": [
+      "higgsfield-generate",
+      "creative-production"
+    ],
+    "route": "R28"
+  },
+  "S09_edit": {
+    "skills": [
+      "video-production-assets"
+    ],
+    "route": "R31"
+  },
+  "S10_qa": {
+    "skills": [
+      "video-production-assets",
+      "creative-production"
+    ],
+    "route": "R20"
+  },
+  "G3_user_review": {
+    "skills": [
+      "creative-production"
+    ],
+    "route": null
+  },
+  "S11_delivery": {
+    "skills": [
+      "recording-production-history"
+    ],
+    "route": "R27"
+  },
+  "S12_feedback": {
+    "skills": [
+      "topic-demand-selection",
+      "searching-social-media"
+    ],
+    "route": null
+  }
+}
