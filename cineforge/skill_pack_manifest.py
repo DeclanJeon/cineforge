@@ -12,7 +12,7 @@ from typing import Literal
 from .data_loader import load
 from .receipts import pins
 
-Status = Literal['missing', 'incompatible', 'invalid', 'ambiguous']
+Status = Literal['missing', 'incompatible', 'invalid', 'ambiguous', 'network', 'integrity', 'unsafe']
 FACTS = ('cut_revision', 'code_motion', 'realtime_3d')
 INVENTORY = 'integrations/cineforge/files.json'
 CONTRACT_VERSION = 1
