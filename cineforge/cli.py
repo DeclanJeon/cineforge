@@ -49,18 +49,26 @@ def cmd_taxonomy(args: argparse.Namespace) -> int:
     return 0
 
 
-def _build_selection(args: argparse.Namespace, tax: Taxonomy, request: str, router: Any, detected: dict[str, Any], constraints: list[str]) -> dict[str, Any]:
-    sel = merge(new_selection(), detected, "request")
-    sel["constraints"] = list(constraints)
+def _seed_layers(args: argparse.Namespace, tax: Taxonomy) -> list[list[Any]]:
+    """Selection layers the operator supplied on `new` (preset, --input-json, --set), in merge order."""
+    layers: list[list[Any]] = []
     if args.preset:
         preset = tax.presets.get(args.preset)
         if not preset:
             raise SystemExit(f"프리셋 없음: {args.preset} (가능: {', '.join(tax.presets)})")
-        sel = merge(sel, preset["selection"], "preset")
+        layers.append([preset["selection"], "preset"])
     if args.input_json:
-        sel = merge(sel, load_json(args.input_json), "user")
+        layers.append([load_json(args.input_json), "user"])
     if args.set:
-        sel = merge(sel, parse_set_flags(args.set, tax), "user")
+        layers.append([parse_set_flags(args.set, tax), "user"])
+    return layers
+
+
+def _build_selection(args: argparse.Namespace, tax: Taxonomy, request: str, router: Any, detected: dict[str, Any], constraints: list[str]) -> dict[str, Any]:
+    sel = merge(new_selection(), detected, "request")
+    sel["constraints"] = list(constraints)
+    for layer, source in _seed_layers(args, tax):
+        sel = merge(sel, layer, source)
     if not args.non_interactive and sys.stdin.isatty():
         sel = interactive(sel, request, router, tax, confirm_detected=args.confirm_all)
     return sel
@@ -91,8 +99,10 @@ def cmd_new(args: argparse.Namespace) -> int:
         inputs["with_dialogue"] = True
     if args.no_speech:
         inputs["no_speech"] = True
-    if args.external_voice:
+    if args.external_voice or args.voice_provider:
         inputs["external_voice"] = True
+    if args.voice_provider:
+        inputs["voice_provider"] = args.voice_provider
     cut_revision = None
     if args.cut_revision is not None:
         scope, preserve = args.cut_revision
@@ -121,6 +131,9 @@ def cmd_new(args: argparse.Namespace) -> int:
             return 3
         goal_contract.write(project.root, resolved["goal"])
         print(f"목표: {resolved['goal']['kind']} {resolved['goal']['constraints']}")
+    seed = _seed_layers(args, tax)
+    if seed:  # kept for S01 when a host intake answer arrives after `new` returns
+        project.write("selection_seed.json", {"layers": seed})
     project.run(until="S00_intake")
     intake = project.read("intake.json")
     if intake is None:
@@ -225,6 +238,8 @@ def cmd_select(args: argparse.Namespace) -> int:
     if current is None:
         current = merge(new_selection(), intake["detected_selection"], "request")
         current["constraints"] = list(intake.get("constraints", []))
+        for layer, source in (project.read("selection_seed.json") or {}).get("layers", []):
+            current = merge(current, layer, source)
     if args.preset:
         current = merge(current, tax.presets[args.preset]["selection"], "preset")
     if args.input_json:
@@ -732,6 +747,7 @@ def build_parser() -> argparse.ArgumentParser:
     speech.add_argument("--with-dialogue", action="store_true", help="극영화 대사 사용")
     speech.add_argument("--no-speech", action="store_true", help="대사·음성 없음(효과음·연출만)")
     n.add_argument("--external-voice", action="store_true", help="대사를 영상 모델 네이티브가 아닌 별도 음성(TTS)으로 제작(기본: 네이티브)")
+    n.add_argument("--voice-provider", choices=["fish_audio", "typecast"], help="별도 음성 TTS 서비스(지정 시 --external-voice 포함, 기본 fish_audio)")
     n.add_argument("--auto-accept-plan", action="store_true", help="기획안 자동 검수 통과 시 사용자 승인으로 간주(사용자가 명시적으로 위임)")
     n.add_argument("--nonstop", action=argparse.BooleanOptionalAction, default=True, help="기본: 자동 기획, --no-nonstop: 수동 검토")
     n.add_argument("--image-limit", type=int, help="Codex Imagen 실행·참조 전송 범위 상한(작품 누적 건수). 비용 승인 아님")

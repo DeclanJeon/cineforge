@@ -32,7 +32,7 @@ def design(plan: dict[str, Any], *, silent: bool) -> tuple[Design, ...]:
     return tuple(rows)
 
 
-def cue_rows(plan: dict[str, Any], silent: bool, cuts: list[dict[str, Any]] | None = None) -> list[dict[str, Any]]:
+def cue_rows(plan: dict[str, Any], silent: bool, cuts: list[dict[str, Any]] | None = None, *, voice_led: bool = False) -> list[dict[str, Any]]:
     """Scheduled cues; OST replaces BGM on the same span instead of stacking."""
     rows: list[dict[str, Any]] = []
     for row, scene in zip(design(plan, silent=silent), plan['scenes'], strict=True):
@@ -41,7 +41,7 @@ def cue_rows(plan: dict[str, Any], silent: bool, cuts: list[dict[str, Any]] | No
             span = min(12.0, max(4.0, (end - start) / 2))
             at = start if row.ost == 'opening' else max(start, end - span)
             rows.append({'type': 'OST', 'tc_in': at, 'tc_out': min(end, at + span), 'cut_id': None,
-                         'description': f"주제가 {row.ost} — {scene.get('title', '')}", 'vocal': not silent,
+                         'description': f"주제가 {row.ost} — {scene.get('title', '')}", 'vocal': not silent and not voice_led,
                          'role': 'main theme'})
             if at > start:
                 rows.append({'type': 'BGM', 'tc_in': start, 'tc_out': at, 'cut_id': None,
@@ -94,7 +94,7 @@ def _duck_music(rows: list[dict[str, Any]], cuts: list[dict[str, Any]]) -> list[
     return kept
 
 
-def cues_from_plan(cuts: list[dict[str, Any]], plan: dict[str, Any], silent: bool) -> list[dict[str, Any]]:
+def cues_from_plan(cuts: list[dict[str, Any]], plan: dict[str, Any], silent: bool, *, voice_led: bool = False) -> list[dict[str, Any]]:
     """Public entry used by the audio SSOT; schedules and numbers the cues."""
     from .local_motion import compile_plan, has_local_motion
 
@@ -103,7 +103,7 @@ def cues_from_plan(cuts: list[dict[str, Any]], plan: dict[str, Any], silent: boo
         compile_plan(plan)
         return []
     numbered = []
-    for index, row in enumerate(cue_rows(plan, silent, cuts), start=1):
+    for index, row in enumerate(cue_rows(plan, silent, cuts, voice_led=voice_led), start=1):
         numbered.append({'cue_id': f'Q{index:03d}', 'type': row['type'], 'tc_in': round(float(row['tc_in']), 2),
                          'tc_out': round(float(row['tc_out']), 2), 'cut_id': row['cut_id'],
                          'description': row['description'], 'level': LEVELS[row['type']],

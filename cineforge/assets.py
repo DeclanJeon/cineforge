@@ -66,6 +66,8 @@ def image_prompts(project_id: str, ssots: dict[str, dict[str, Any]], aspect: str
     negative = ", ".join(NEGATIVE_BASE + concept.get("forbidden_props", []))
     prompts: list[dict[str, Any]] = []
     for c in chars.values():
+        if c.get("on_screen") is False:  # voice-over: no identity or wardrobe sheet to generate
+            continue
         views = ["front_full", "three_quarter_full", "profile_left_full", "back_full",
                  "face_front", "face_three_quarter", "face_profile_left"]
         prompts.append({"prompt_id": f"A-{c['id']}-MASTER", "target": c["name"], "cut_id": None, "kind": "character_sheet",
@@ -130,7 +132,7 @@ def video_prompts(project_id: str, ssots: dict[str, dict[str, Any]], aspect: str
             audio_section = "AUDIO: 대사 없음. " + sfx_text
         audio = audio_section
         prompts.append({"prompt_id": f"VID-{cut['cut_id']}", "target": cut["cut_id"], "cut_id": cut["cut_id"], "kind": "video",
-                        "prompt": f"시작 프레임 IMG-{cut['cut_id']}-S 에서 종료 프레임 IMG-{cut['cut_id']}-E 로. 동작: {mo['action']} (속도 {mo['speed']}, 방향 {mo['direction']}). "
+                        "prompt": f"시작 프레임 IMG-{cut['cut_id']}-S 에서 종료 프레임 IMG-{cut['cut_id']}-E 로. 동작: {mo['action']} (속도 {mo['speed']}{', 방향 ' + mo['direction'] if mo.get('direction') else ''}). "
                                   f"카메라: {cam['movement']}, {cam['shot_size']}. 길이 {cut['duration']}초. 사운드: {audio}. 인물 얼굴·의상·소품 위치는 시작 프레임과 동일하게 유지.",
                         "negative": ", ".join(NEGATIVE_BASE), "refs": [f"IMG-{cut['cut_id']}-S", f"IMG-{cut['cut_id']}-E"],
                         "params": {"duration_s": cut["duration"], "aspect": aspect, "audio": not silent,

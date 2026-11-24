@@ -62,7 +62,7 @@ def proposal(project: Any, data: Any) -> dict[str, Any]:
             raise ValueError('invalid_execution_lane')
         kind, provider, model, count = (row.get(key) for key in ('kind', 'provider', 'model', 'max_jobs'))
         if (not isinstance(kind, str) or kind == 'image' or kind not in PROVIDER_OF or kind in lanes
-                or (provider != PROVIDER_OF[kind] and (kind, provider) not in (('video_cut', 'higgsfield'), ('video_cut', 'code-motion')))
+                or (provider != PROVIDER_OF[kind] and (kind, provider) not in (('video_cut', 'higgsfield'), ('video_cut', 'code-motion'), ('dialogue', 'typecast')))
                 or not isinstance(model, str) or not model.strip() or type(count) is not int or count <= 0):
             raise ValueError('invalid_execution_lane')
         fields = {'kind', 'provider', 'model', 'max_jobs'}

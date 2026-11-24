@@ -264,6 +264,8 @@ class Project:
         sel = self.read("selection.json")
         if sel is None:
             sel = merge(new_selection(), intake["detected_selection"], "request")
+            for layer, source in (self.read("selection_seed.json") or {}).get("layers", []):
+                sel = merge(sel, layer, source)
         sel.setdefault("constraints", [])
         sel["constraints"] = sorted(set(sel["constraints"]) | set(intake.get("constraints", [])))
         before = {k for k, v in sel["sources"].items()}
@@ -325,6 +327,12 @@ class Project:
 
     def _g1(self, prog: dict[str, Any]) -> bool:
         plan = self.read("plan.json")
+        # Re-check the current plan: a stored preflight goes stale when plan.json is edited after S03.
+        from .planner import preflight
+        fresh = [c for c in plan.get("preflight_checks", []) if isinstance(c, dict) and c.get("id", "").startswith("U")] + preflight(plan)
+        if fresh != plan.get("preflight_checks"):
+            plan["preflight_checks"] = fresh
+            self.write("plan.json", plan, "plan")
         fails = [c for c in plan["preflight_checks"] if c["status"] == "fail"]
         review = qa.report("G1_plan_review", [{"rule": c["id"], "severity": "error", "target": None, "message": c["item"] + ": " + c.get("detail", "")} for c in fails])
         self.write("reviews/plan_review.json", review, "qa_report")
@@ -454,7 +462,8 @@ class Project:
         mood = self.read("plan.json")["production_spec"].get("bgm") or "장면 정서에 맞춘 절제된 긴장"
         era = ss["world"]["data"].get("era") or ""
         write_plan(self.root, sound_plan(ss["audio"]["data"]["cues"], mood=mood, era=era,
-                                          external_voice=bool((self.read("project.json") or {}).get("inputs", {}).get("external_voice"))), selected={})
+                                          external_voice=bool((self.read("project.json") or {}).get("inputs", {}).get("external_voice")),
+                                          voice_provider=(self.read("project.json") or {}).get("inputs", {}).get("voice_provider")), selected={})
         self._handoff("S07_assets", {"enrich": "video-production-assets(11-ai-handoff)·ai-camera-control(R19)로 모델별 프롬프트 방언 변환은 실행 직전에"})
         self.set_stage(prog, "S07_assets", "done", ", ".join(written) + " · 에셋/프레임/프롬프트/큐시트 작성")
         return True

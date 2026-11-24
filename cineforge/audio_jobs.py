@@ -8,7 +8,7 @@ from typing import Any
 
 from .jobs import Job, JobError, audio_jobs, require_authorized
 
-PROVIDER_DIR = {'suno': 'audio/music', 'elevenlabs': 'audio/sfx', 'fish_audio': 'audio/voice'}
+PROVIDER_DIR = {'suno': 'audio/music', 'elevenlabs': 'audio/sfx', 'fish_audio': 'audio/voice', 'typecast': 'audio/voice'}
 
 
 def plan_jobs(project: Path) -> tuple[Job, ...]:

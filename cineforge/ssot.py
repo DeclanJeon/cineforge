@@ -117,6 +117,8 @@ def build_all(plan: dict[str, Any], concept: dict[str, Any], selection: dict[str
     rules = concept.get("direction_rules", {})
     chars = plan["characters"]
     char_ids = [c["id"] for c in chars]
+    # A voice-over speaker (on_screen: false) is heard, never placed in frame.
+    visible = [c["id"] for c in chars if c.get("on_screen", True) is not False]
     locations: dict[str, dict[str, Any]] = {}
     for s in plan["scenes"]:
         name = s.get("location") or "미정 공간"
@@ -146,6 +148,7 @@ def build_all(plan: dict[str, Any], concept: dict[str, Any], selection: dict[str
         "voice": {"type": "silent" if "무음" in (c.get("voice") or "") or "no_speech" in selection.get("constraints", []) else "dialogue",
                   "description": c.get("voice") or ""},
         "consent": {"real_person": bool(c.get("real_person", False)), "likeness_consent": c.get("likeness_consent")},
+        "on_screen": c.get("on_screen", True) is not False,
     } for c in chars]}
     world = {"era": tax_labels.get("era"), "world": tax_labels.get("world"),
              "rules": [r for r in [tax_labels.get("world") and f"세계관 규칙: {tax_labels['world']}", tax_labels.get("era") and f"시대 고증: {tax_labels['era']}"] if r],
@@ -153,7 +156,7 @@ def build_all(plan: dict[str, Any], concept: dict[str, Any], selection: dict[str
              "props": [{"id": f"PR{i + 1:02d}", "name": p, "era_valid": True} for i, p in enumerate(plan.get("props", []))],
              "forbidden_props": rules.get("forbidden_props", [])}
     cuts, cams, motions = [], [], []
-    positions_default = {cid: ("left" if i == 0 else "right" if i == 1 else "center") for i, cid in enumerate(char_ids)}
+    positions_default = {cid: ("left" if i == 0 else "right" if i == 1 else "center") for i, cid in enumerate(visible)}
     for s in plan["scenes"]:
         loc = locations[s.get("location") or "미정 공간"]["id"]
         carry = {"positions": dict(positions_default), "holding": {cid: {"left": None, "right": None} for cid in char_ids},
@@ -164,7 +167,12 @@ def build_all(plan: dict[str, Any], concept: dict[str, Any], selection: dict[str
             start_state = _merge_state(carry, st.get("start"))
             end_state = _merge_state(start_state, st.get("end"))
             cut_id = f"S{s['no']:02d}C{c['no']:02d}"
-            present = c.get("characters") or ([c["speaker"]] if c.get("speaker") else char_ids[:1])
+            if "characters" in c:  # an explicit empty list means nobody is in frame
+                present = [cid for cid in c["characters"] if cid in visible]
+            elif c.get("speaker"):
+                present = [c["speaker"]] if c["speaker"] in visible else []
+            else:
+                present = visible[:1]
             cuts.append({"cut_id": cut_id, "scene_no": s["no"], "cut_no": c["no"], "start": round(t, 2), "end": round(t + float(c["duration"]), 2),
                          "duration": float(c["duration"]), "location_id": loc, "characters": present, "start_state": start_state, "end_state": end_state,
                          "state_changes": st.get("changes", []), "dialogue": c.get("dialogue") or None, "speaker": c.get("speaker"), "visual": c["visual"],
@@ -173,18 +181,19 @@ def build_all(plan: dict[str, Any], concept: dict[str, Any], selection: dict[str
             shot = c.get("shot") or "미디엄샷"
             cams.append({"cut_id": cut_id, "shot_size": shot, "lens_mm": int(c.get("lens_mm") or LENS_BY_SHOT.get(shot, 50)),
                          "angle": c.get("angle", "아이레벨"), "movement": c.get("camera", "고정"), "axis_side": c.get("axis_side", "A"),
-                         "screen_direction": c.get("screen_direction", "L→R"), "crosses_axis": bool(st.get("crosses_axis", False))})
-            motions.append({"cut_id": cut_id, "action": c["visual"], "direction": c.get("screen_direction", "L→R"), "speed": c.get("speed", "보통"),
+                         "screen_direction": c.get("screen_direction"), "crosses_axis": bool(st.get("crosses_axis", False))})
+            motions.append({"cut_id": cut_id, "action": c["visual"], "direction": c.get("screen_direction"), "speed": c.get("speed", "보통"),
                             "contact": st.get("contact", [])})
             carry = end_state
             t += float(c["duration"])
     silent = selection.get("direction", {}).get("sound") == "silent" or "no_speech" in selection.get("constraints", [])
+    voice_led = selection.get("direction", {}).get("sound") == "narration_driven"
     from .audio_design import cues_from_plan
-    cues = cues_from_plan(cuts, plan, silent)
+    cues = cues_from_plan(cuts, plan, silent, voice_led=voice_led)
     audio = {"voices": [{"character_id": c["id"], "type": "silent" if silent else "dialogue", "description": c.get("voice", "")} for c in chars],
              "music_themes": [
                  {"id": "TH01", "description": f"주제가(OST): {plan.get('title', '')} — {plan['production_spec'].get('bgm', '')}",
-                  "license": "original-to-generate", "vocal": not silent},
+                  "license": "original-to-generate", "vocal": not silent and not voice_led},
                  {"id": "TH02", "description": f"언더스코어: {plan['production_spec'].get('bgm', '')}", "license": "original-to-generate", "vocal": False}],
              "ambience": [{"location_id": l["id"], "description": f"{l['name']} 공간음"} for l in locations.values()],
              "cues": cues}
