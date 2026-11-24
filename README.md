@@ -175,6 +175,23 @@ cineforge deliver <project>                     # final/<project>.mp4 + .srt + d
 - `cineforge skills [--root PATH]`: 설치된 팩의 CineForge 계약과 파일 해시를 검사합니다. 납품에는 프로젝트에 고정한 팩 정보를 `delivery.json.skill_pack`에 남기며, 파일 해시를 도구 사용 증거로 간주하지 않습니다.
 - 전체 대기·복구·영수증 규칙은 [제작 완결 설계](docs/superpowers/specs/2026-11-20-production-closure-design.md)를 따른다.
 
+## 제작 서비스 선택과 모든 에이전트 등록
+
+영상·이미지·음성·음악·효과음·아바타를 어떤 서비스로 만들지 **프로젝트 시작 때 한 번** 고릅니다. 목록은 `cineforge/data/providers.yaml`(공식 원격 MCP 중심 75개, 조사: `docs/research/2026-11-24-media-provider-mcp.md`)이며 한 줄로 추가할 수 있습니다.
+
+```bash
+cineforge services list                    # 용도별 목록, ✓ = 이미 에이전트에 등록됨
+cineforge services list --lane voice --json
+cineforge services setup runway            # 미리보기: 어느 에이전트에 무엇이 추가되는지
+cineforge services setup runway --yes      # pi·codex·opencode·claude·gemini 중 설치된 곳에 모두 등록
+cineforge new "…" --providers video=runway,voice=typecast
+```
+
+- **대화형 CLI**: 콘셉트 질문 전에 용도별 번호 선택(Enter=기본값)을 보여 줍니다.
+- **에이전트(host) 모드**: S01에서 `agent_io/requests/providers_choice.json`(`kind: user_choice`, `must_ask_user: true`)을 쓰고 `waiting_user`로 멈춥니다. 에이전트는 **대신 답하지 말고** 선택지를 사용자에게 그대로 보여 준 뒤 `{"choices": {용도: id}, "user_said": "사용자가 실제로 한 말"}`을 응답합니다. `user_said`가 없으면 차단됩니다.
+- **등록**: 각 에이전트의 공식 CLI(`pi mcp add`, `codex mcp add`, `opencode mcp add --global`, `claude mcp add`)를 쓰고, CLI가 없는 Gemini만 `settings.json`을 백업 후 수정합니다. 같은 이름이나 같은 URL이 이미 있으면 건너뜁니다. API 키 서비스는 키 값이 아니라 환경변수 이름만 등록합니다. OAuth 로그인은 에이전트마다 처음 한 번 브라우저에서 해야 하며, 등록 후 안내가 출력됩니다.
+- 선택한 음성 서비스는 대사 TTS 경로(사운드 계획·실행 계획)에 바로 반영됩니다.
+
 ## 사운드 디자인과 MCP
 
 S07은 `assets/sound_plan.json`을 씁니다. 큐마다 담당 MCP·도구·프롬프트·루프·AI 표시가 붙습니다: BGM·OST는 **공식 Suno MCP**(`https://api.suno.com/mcp`, OAuth, 도구명은 연결 후 확정), 효과음·공간음은 ElevenLabs(`elevenlabs_sound_effect`), 대사는 Fish Audio(`fish_audio_tts`, TypeCast 대체)입니다. 이 파일은 생성 인계이며 음원 생성 자체는 아직 실행하지 않습니다.

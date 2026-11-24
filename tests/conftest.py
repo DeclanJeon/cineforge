@@ -100,3 +100,22 @@ def example_plan():
 
 SAMPLE_REQUEST = ("60초 분량의 코미디 숏드라마 콘텐츠를 기획해줘. 연출은 시네마틱 실사, 서사 구조는 결말 선공개으로 하고 "
                   "시놉시스, 후킹, 타임라인, 씬과 컷 구성까지")
+
+
+@pytest.fixture(autouse=True)
+def _never_touch_real_agents(monkeypatch, tmp_path):
+    """Agent registration must never run real `pi/codex/... mcp add` or edit real configs in tests."""
+    from cineforge import agent_register
+
+    def refuse(argv):
+        raise AssertionError(f"test tried to run a real agent command: {argv}")
+
+    monkeypatch.setattr(agent_register, "_run", refuse)
+    real_edit = agent_register._edit_gemini
+
+    def guarded_edit(home, name, entry):
+        if Path(home).resolve() == Path.home().resolve():
+            raise AssertionError("test tried to edit the real ~/.gemini/settings.json")
+        return real_edit(home, name, entry)
+
+    monkeypatch.setattr(agent_register, "_edit_gemini", guarded_edit)

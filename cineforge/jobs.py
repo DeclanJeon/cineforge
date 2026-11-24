@@ -63,7 +63,10 @@ def _job(project: Path, *, job_id: str, kind: str, inputs: list[str], prompt: st
     provider, tool = PROVIDER_OF[kind], TOOL_OF[kind]
     if lane:
         provider = lane['provider']
-        tool = {'higgsfield': 'generate_video', 'code-motion': 'render_html_motion', 'typecast': 'typecast_tts'}.get(provider, tool)
+        tool = {'higgsfield': 'generate_video', 'code-motion': 'render_html_motion'}.get(provider, tool)
+        if kind == 'dialogue' and provider != PROVIDER_OF['dialogue']:
+            from .sound import voice_lane
+            tool = voice_lane(provider)[1]
         params = {**params, 'model': lane['model']}
         if kind == 'video_cut' and provider == 'ludyte' and lane['model'] == 'singularity-full-v2':
             edit_seconds = float(params['duration_s'])

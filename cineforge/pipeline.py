@@ -259,7 +259,41 @@ class Project:
         self.set_stage(prog, "S00_intake", "done", note, provider=",".join(result.providers_used) or None)
         return True
 
+    def _providers_ready(self, prog: dict[str, Any]) -> bool:
+        """Ask once per project which production services to use; a host agent must relay it to the user."""
+        from . import provider_choice
+        from .providers.host_agent import _HostIO
+
+        meta = self.read("project.json") or {}
+        inputs = meta.setdefault("inputs", {})
+        if inputs.get("providers"):
+            return True
+        if meta.get("provider_mode") == "host":
+            try:
+                reply = _HostIO(self.root / "agent_io").exchange("providers_choice", provider_choice.request())
+            except AgentInputRequired as req:
+                self.set_stage(prog, "S01_selection", "waiting_user",
+                               f"사용자 선택 필요(에이전트가 대신 답하지 말 것): {req.request_path} → {req.response_path}")
+                return False
+            said = reply.get("user_said") if isinstance(reply, dict) else None
+            if not isinstance(said, str) or not said.strip():
+                self.set_stage(prog, "S01_selection", "blocked", "providers_choice 응답에 user_said(사용자가 실제로 한 말)가 필요합니다")
+                return False
+            try:
+                choices = provider_choice.validate(reply.get("choices"))
+            except ValueError as exc:
+                self.set_stage(prog, "S01_selection", "blocked", f"providers_choice 응답 오류: {exc}")
+                return False
+            provider_choice.apply(inputs, choices, "user", said.strip())
+        else:
+            provider_choice.apply(inputs, {}, "default")
+        atomic_text(self.root / "project.json", json.dumps(meta, ensure_ascii=False, indent=2))
+        self.log("providers_chosen", providers=inputs["providers"], source=inputs["providers_source"])
+        return True
+
     def _s01(self, prog: dict[str, Any]) -> bool:
+        if not self._providers_ready(prog):
+            return False
         intake = self.read("intake.json")
         sel = self.read("selection.json")
         if sel is None:

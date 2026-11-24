@@ -36,6 +36,7 @@ def candidates(home: Path | None = None) -> list[tuple[str, Path]]:
         ('claude', base / '.config/Claude/claude_desktop_config.json'),
         ('gemini', base / '.gemini/settings.json'),
         ('opencode', base / '.config/opencode/opencode.json'),
+        ('opencode', base / '.config/opencode/opencode.jsonc'),
         ('pi', base / '.pi/agent/mcp.json'),
         ('mcp', base / '.config/mcp/mcp.json'),
     ]
@@ -44,13 +45,42 @@ def candidates(home: Path | None = None) -> list[tuple[str, Path]]:
 def _entry(agent: str, source: Path, name: str, spec: dict[str, Any]) -> dict[str, Any]:
     return {'agent': agent, 'source': str(source), 'name': name,
             'command': spec.get('command'), 'args': spec.get('args') or [],
-            'url': spec.get('url') or spec.get('endpoint'),
+            'url': spec.get('url') or spec.get('httpUrl') or spec.get('endpoint'),
             'env_keys': sorted((spec.get('env') or {}).keys())}
+
+
+def strip_jsonc(text: str) -> str:
+    """Remove // and /* */ comments and trailing commas outside strings (opencode.jsonc)."""
+    out, i, n, in_str = [], 0, len(text), False
+    while i < n:
+        ch = text[i]
+        if in_str:
+            out.append(ch)
+            if ch == '\\' and i + 1 < n:
+                out.append(text[i + 1]); i += 2; continue
+            if ch == '"':
+                in_str = False
+        elif ch == '"':
+            in_str = True; out.append(ch)
+        elif text.startswith('//', i):
+            while i < n and text[i] != '\n':
+                i += 1
+            continue
+        elif text.startswith('/*', i):
+            end = text.find('*/', i + 2)
+            i = n if end < 0 else end + 2
+            continue
+        else:
+            out.append(ch)
+        i += 1
+    import re
+    return re.sub(r',(\s*[}\]])', r'\1', ''.join(out))
 
 
 def _from_json(agent: str, path: Path) -> list[dict[str, Any]]:
     try:
-        document = json.loads(path.read_text(encoding='utf-8'))
+        raw = path.read_text(encoding='utf-8')
+        document = json.loads(strip_jsonc(raw) if path.suffix == '.jsonc' else raw)
     except (OSError, ValueError):
         return []
     servers: Any = None
@@ -59,7 +89,10 @@ def _from_json(agent: str, path: Path) -> list[dict[str, Any]]:
             servers = document[key]
             break
     if servers is None and isinstance(document, dict) and isinstance(document.get('mcp'), dict):
-        servers = document['mcp'].get('servers')
+        mcp = document['mcp']
+        # opencode keeps {name: spec} directly under "mcp"; others nest under "servers".
+        servers = mcp.get('servers') if isinstance(mcp.get('servers'), dict) else {
+            k: v for k, v in mcp.items() if isinstance(v, dict) and any(key in v for key in ('url', 'command', 'type'))}
     if not isinstance(servers, dict):
         return []
     return [_entry(agent, path, str(name), spec if isinstance(spec, dict) else {})

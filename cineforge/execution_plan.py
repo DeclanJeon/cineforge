@@ -51,6 +51,15 @@ def code_motion_cuts(project: Path, lane: dict[str, Any]) -> set[str]:
     return selected
 
 
+def _voice_service(provider: Any) -> bool:
+    from . import provider_registry
+    try:
+        row = provider_registry.get(str(provider))
+    except ValueError:
+        return False
+    return 'voice' in row['lanes'] and row['transport'] not in ('builtin', 'none')
+
+
 def proposal(project: Any, data: Any) -> dict[str, Any]:
     from .jobs import PROVIDER_OF
 
@@ -62,7 +71,8 @@ def proposal(project: Any, data: Any) -> dict[str, Any]:
             raise ValueError('invalid_execution_lane')
         kind, provider, model, count = (row.get(key) for key in ('kind', 'provider', 'model', 'max_jobs'))
         if (not isinstance(kind, str) or kind == 'image' or kind not in PROVIDER_OF or kind in lanes
-                or (provider != PROVIDER_OF[kind] and (kind, provider) not in (('video_cut', 'higgsfield'), ('video_cut', 'code-motion'), ('dialogue', 'typecast')))
+                or (provider != PROVIDER_OF[kind] and (kind, provider) not in (('video_cut', 'higgsfield'), ('video_cut', 'code-motion'))
+                    and not (kind == 'dialogue' and _voice_service(provider)))
                 or not isinstance(model, str) or not model.strip() or type(count) is not int or count <= 0):
             raise ValueError('invalid_execution_lane')
         fields = {'kind', 'provider', 'model', 'max_jobs'}

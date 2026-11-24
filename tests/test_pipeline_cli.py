@@ -187,6 +187,8 @@ def test_host_mode_with_example_plan(tmp_path, example_plan):
                     else:
                         ans[qid] = {"score": q["criteria"][-2]}
                 out = {"answers": ans}
+            elif req["kind"] == "user_choice":  # relayed to the user; the user keeps the defaults
+                out = {"choices": {"video": "ludyte"}, "user_said": "기본값으로 진행"}
             else:
                 out = example_plan
             (io / "responses").mkdir(parents=True, exist_ok=True)

@@ -1,0 +1,964 @@
+# Production providers CineForge can route to. Generated from research; edit by hand to add one.
+version: 1
+researched: '2026-11-24'
+research: docs/research/2026-11-24-media-provider-mcp.md
+defaults:
+  video: ludyte
+  image: codex-imagen
+  voice: native-audio
+  music: suno
+  sfx: elevenlabs
+  avatar: none
+providers:
+- id: apiframe
+  name: Apiframe
+  vendor: Apiframe (Katario LLC)
+  lanes:
+  - video
+  - image
+  transport: remote
+  url: https://mcp.apiframe.ai
+  auth: api_key
+  billing: credits
+  docs: https://apiframe.ai/mcp
+  verified: '2026-11-13'
+  source: mcp.film registry
+  env_var: APIFRAME_API_KEY
+- id: artlist
+  name: Artlist
+  vendor: Artlist
+  lanes:
+  - video
+  - image
+  transport: remote
+  url: https://mcp.artlist.io/mcp
+  auth: oauth
+  billing: credits
+  docs: https://artlist.io/mcp
+  verified: '2026-11-01'
+  source: mcp.film registry
+- id: budgetpixel
+  name: BudgetPixel
+  vendor: BudgetPixel
+  lanes:
+  - video
+  - image
+  transport: remote
+  url: https://mcp.budgetpixel.com/mcp
+  auth: oauth
+  billing: paid
+  docs: https://budgetpixel.com/mcp
+  verified: '2026-10-25'
+  source: mcp.film registry
+- id: civitai
+  name: Civitai Orchestration
+  vendor: Civitai
+  lanes:
+  - video
+  - image
+  transport: remote
+  url: https://orchestration.civitai.com/mcp/v2
+  auth: api_key
+  billing: credits
+  docs: https://developer.civitai.com/orchestration/mcp/
+  verified: '2026-11-07'
+  source: mcp.film registry
+  env_var: CIVITAI_API_KEY
+- id: clip-studio
+  name: Clip Studio
+  vendor: Clip Studio
+  lanes:
+  - video
+  transport: remote
+  url: https://clipstudio.ai/api/mcp
+  auth: oauth
+  billing: paid
+  docs: https://clipstudio.ai/mcp
+  verified: '2026-11-05'
+  source: mcp.film registry
+- id: comfy-mcp
+  name: Comfy
+  vendor: Comfy Org
+  lanes:
+  - video
+  - image
+  transport: remote
+  url: https://cloud.comfy.org/mcp
+  auth: oauth
+  billing: freemium
+  docs: https://docs.comfy.org/agent-tools/local
+  verified: '2026-10-11'
+  source: mcp.film registry
+- id: empiriolabs
+  name: EmpirioLabs AI
+  vendor: EmpirioLabs.ai LLC
+  lanes:
+  - video
+  - image
+  transport: remote
+  url: https://mcp.empiriolabs.ai/mcp
+  auth: oauth
+  billing: credits
+  docs: https://docs.empiriolabs.ai/mcp
+  verified: '2026-10-25'
+  source: mcp.film registry
+- id: everygen
+  name: Everygen
+  vendor: Everygen (Viewmax LLC)
+  lanes:
+  - video
+  transport: remote
+  url: https://everygen.ai/api/mcp
+  auth: oauth
+  billing: paid
+  docs: https://everygen.ai/mcp
+  verified: '2026-10-27'
+  source: mcp.film registry
+- id: fal
+  name: fal
+  vendor: fal.ai
+  lanes:
+  - video
+  - image
+  transport: remote
+  url: https://mcp.fal.ai/mcp
+  auth: api_key
+  billing: credits
+  docs: https://fal.ai/docs/model-apis/mcp
+  verified: '2026-10-02'
+  source: mcp.film registry
+  env_var: FAL_KEY
+- id: genmagic
+  name: GenMagic
+  vendor: GenMagic (single-developer gateway)
+  lanes:
+  - video
+  - image
+  transport: remote
+  url: https://genmagic.co/api/mcp
+  auth: api_key
+  billing: credits
+  docs: https://genmagic.co/developers
+  verified: '2026-10-10'
+  source: mcp.film registry
+  env_var: GENMAGIC_API_KEY
+- id: getimg
+  name: getimg.ai
+  vendor: getimg.ai
+  lanes:
+  - video
+  - image
+  transport: remote
+  url: https://getimg.ai/mcp
+  auth: oauth
+  billing: credits
+  docs: https://getimg.ai/guides/guide-to-getimg-ai-mcp-server
+  verified: '2026-11-02'
+  source: mcp.film registry
+- id: hedra
+  name: Hedra
+  vendor: Hedra
+  lanes:
+  - video
+  - image
+  transport: remote
+  url: https://mcp.hedra.com
+  auth: oauth
+  billing: credits
+  docs: https://www.hedra.com/mcp
+  verified: '2026-10-23'
+  source: mcp.film registry
+- id: higgsfield
+  name: Higgsfield
+  vendor: Higgsfield AI
+  lanes:
+  - video
+  transport: remote
+  url: https://mcp.higgsfield.ai/mcp
+  auth: oauth
+  billing: credits
+  docs: https://higgsfield.ai/mcp
+  verified: '2026-10-27'
+  source: mcp.film registry
+- id: imagera
+  name: Imagera
+  vendor: Imagera AI
+  lanes:
+  - video
+  - image
+  transport: remote
+  url: https://mcp.imagera.ai/mcp
+  auth: oauth
+  billing: paid
+  docs: https://imagera.ai/mcp
+  verified: '2026-11-15'
+  source: mcp.film registry
+- id: imagine-art
+  name: Imagine
+  vendor: ImagineArt (Vyro AI)
+  lanes:
+  - video
+  - image
+  transport: remote
+  url: https://mcp.imagine.art
+  auth: oauth
+  billing: credits
+  docs: https://www.imagine.art/mcp
+  verified: '2026-10-25'
+  source: mcp.film registry
+- id: incarn
+  name: Incarn
+  vendor: Incarn
+  lanes:
+  - video
+  transport: remote
+  url: https://api.incarn.co/mcp
+  auth: oauth
+  billing: credits
+  docs: https://www.incarn.co/en/developers/docs
+  verified: '2026-10-10'
+  source: mcp.film registry
+- id: inference-sh
+  name: inference.sh
+  vendor: inference.sh
+  lanes:
+  - video
+  - image
+  transport: remote
+  url: https://api.inference.sh/mcp
+  auth: api_key
+  billing: credits
+  docs: https://inference.sh/docs/connectors/mcp-server
+  verified: '2026-10-07'
+  source: mcp.film registry
+  env_var: INFERENCE_SH_API_KEY
+- id: kleo
+  name: Kleo
+  vendor: Kleo (single maintainer)
+  lanes:
+  - video
+  transport: remote
+  url: https://mcp.kleooai.com/mcp
+  auth: oauth
+  billing: credits
+  docs: https://kleooai.com/connect/
+  verified: '2026-10-10'
+  source: mcp.film registry
+- id: kling
+  name: Kling
+  vendor: Kling AI (Kuaishou)
+  lanes:
+  - video
+  transport: remote
+  url: https://kling.ai/mcp
+  auth: oauth
+  billing: credits
+  docs: https://kling.ai/app/mcp/guide
+  verified: '2026-10-20'
+  source: mcp.film registry
+- id: krea
+  name: Krea
+  vendor: Krea
+  lanes:
+  - video
+  - image
+  transport: remote
+  url: https://api.krea.ai/mcp
+  auth: oauth
+  billing: credits
+  docs: https://www.krea.ai/docs/developers/mcp
+  verified: '2026-10-27'
+  source: mcp.film registry
+- id: ludyte
+  name: Ludyte
+  vendor: Ludyte
+  lanes:
+  - video
+  - image
+  transport: remote
+  url: https://mcp.ludyte.com/mcp
+  auth: oauth
+  billing: subscription
+  docs: https://ludyte.com
+  verified: '2026-11-24'
+  source: local Codex config + MCP contract read
+- id: mage
+  name: Mage
+  vendor: Mage (mage.space)
+  lanes:
+  - video
+  - image
+  transport: remote
+  url: https://mcp.mage.space/mcp
+  auth: oauth
+  billing: credits
+  docs: https://www.mage.space/developers/mcp
+  verified: '2026-10-25'
+  source: mcp.film registry
+- id: magic-hour
+  name: Magic Hour
+  vendor: Magic Hour
+  lanes:
+  - video
+  transport: remote
+  url: https://mcp.magichour.ai/
+  auth: api_key
+  billing: credits
+  docs: https://magichour.ai/mcp
+  verified: '2026-10-27'
+  source: mcp.film registry
+  env_var: MAGIC_HOUR_API_KEY
+- id: makeaivideo
+  name: MakeAIVideo
+  vendor: MakeAIVideo
+  lanes:
+  - video
+  transport: remote
+  url: https://mcp.makeaivideo.ai
+  auth: oauth
+  billing: credits
+  docs: https://makeaivideo.ai/docs/mcp
+  verified: '2026-10-18'
+  source: mcp.film registry
+- id: maxvideoai
+  name: MaxVideoAI
+  vendor: MaxVideoAI (camgraphe)
+  lanes:
+  - video
+  - image
+  transport: remote
+  url: https://api.maxvideoai.com/mcp
+  auth: oauth
+  billing: credits
+  docs: https://maxvideoai.com/docs/mcp
+  verified: '2026-11-01'
+  source: mcp.film registry
+- id: mosaic-motion
+  name: Mosaic Motion
+  vendor: Mosaic
+  lanes:
+  - video
+  transport: remote
+  url: https://mcp.motion.so/mcp
+  auth: oauth
+  billing: credits
+  docs: https://docs.motion.so/guides/mcp
+  verified: '2026-11-15'
+  source: mcp.film registry
+- id: motionvid
+  name: MotionVid
+  vendor: MotionVid (motionvid.ai)
+  lanes:
+  - video
+  transport: remote
+  url: https://motionvid.ai/mcp
+  auth: oauth
+  billing: credits
+  docs: https://motionvid.ai/mcp
+  verified: '2026-11-22'
+  source: mcp.film registry
+- id: picsart
+  name: Picsart
+  vendor: Picsart
+  lanes:
+  - video
+  - image
+  transport: remote
+  url: https://api.picsart.com/gen-ai/mcp
+  auth: oauth
+  billing: credits
+  docs: https://picsart.com/blog/mcp/
+  verified: '2026-10-30'
+  source: mcp.film registry
+- id: pictory
+  name: Pictory
+  vendor: Pictory
+  lanes:
+  - video
+  transport: remote
+  url: https://mcp.pictory.ai/mcp
+  auth: oauth
+  billing: paid
+  docs: https://docs.pictory.ai/claude-mcp/overview
+  verified: '2026-10-31'
+  source: mcp.film registry
+- id: pika
+  name: Pika
+  vendor: Pika Labs
+  lanes:
+  - video
+  transport: remote
+  url: https://mcp.pika.art/mcp
+  auth: oauth
+  billing: credits
+  docs: https://pika.art/mcp
+  verified: '2026-10-19'
+  source: mcp.film registry
+- id: popcraft
+  name: Popcraft
+  vendor: Popcraft
+  lanes:
+  - video
+  - image
+  transport: remote
+  url: https://popcraft.ai/api/mcp
+  auth: oauth
+  billing: credits
+  docs: https://popcraft.ai/mcp
+  verified: '2026-10-03'
+  source: mcp.film registry
+- id: popnow
+  name: PopNow
+  vendor: PopNow
+  lanes:
+  - video
+  - image
+  transport: remote
+  url: https://api.popnow.ai/mcp
+  auth: oauth
+  billing: credits
+  docs: https://popnow.ai/mcp
+  verified: '2026-10-26'
+  source: mcp.film registry
+- id: promptibus
+  name: Promptibus
+  vendor: Promptibus
+  lanes:
+  - video
+  - image
+  transport: remote
+  url: https://promptibus.com/api/mcp
+  auth: api_key
+  billing: freemium
+  docs: https://github.com/promptibus/mcp#readme
+  verified: '2026-10-05'
+  source: mcp.film registry
+  env_var: PROMPTIBUS_API_KEY
+- id: reelsfarm
+  name: ReelsFarm
+  vendor: ReelsFarm
+  lanes:
+  - video
+  transport: remote
+  url: https://mcp.reelsfarm.com/mcp
+  auth: oauth
+  billing: freemium
+  docs: https://reelsfarm.com/docs/mcp
+  verified: '2026-11-06'
+  source: mcp.film registry
+- id: revid
+  name: Revid
+  vendor: Revid.ai
+  lanes:
+  - video
+  transport: remote
+  url: https://www.revid.ai/api/mcp
+  auth: oauth
+  billing: credits
+  docs: https://www.revid.ai/mcp
+  verified: '2026-10-24'
+  source: mcp.film registry
+- id: runapi
+  name: RunAPI
+  vendor: RunAPI
+  lanes:
+  - video
+  - image
+  transport: remote
+  url: https://mcp.runapi.ai/mcp
+  auth: api_key
+  billing: credits
+  docs: https://github.com/runapi-ai/mcp#readme
+  verified: '2026-10-04'
+  source: mcp.film registry
+  env_var: RUNAPI_API_KEY
+- id: runway
+  name: Runway
+  vendor: Runway
+  lanes:
+  - video
+  transport: remote
+  url: https://mcp.runwayml.com/mcp
+  auth: oauth
+  billing: credits
+  docs: https://help.runwayml.com/hc/en-us/articles/51931843164691-Connecting-to-Runway-MCP
+  verified: '2026-10-10'
+  source: mcp.film registry
+- id: varg
+  name: varg
+  vendor: vargai Inc.
+  lanes:
+  - video
+  transport: remote
+  url: https://mcp.varg.ai/mcp
+  auth: oauth
+  billing: credits
+  docs: https://varg.ai/mcp
+  verified: '2026-10-18'
+  source: mcp.film registry
+- id: videogen
+  name: VideoGen
+  vendor: VideoGen
+  lanes:
+  - video
+  transport: remote
+  url: https://mcp.videogen.io/mcp
+  auth: api_key
+  billing: credits
+  docs: https://docs.videogen.io/use-with-ai-agents
+  verified: '2026-10-10'
+  source: mcp.film registry
+  env_var: VIDEOGEN_API_KEY
+- id: vidu
+  name: Vidu
+  vendor: ShengShu
+  lanes:
+  - video
+  transport: remote
+  url: https://service.vidu.com/vidu/mcp
+  auth: login
+  billing: credits
+  docs: https://www.vidu.com/mcp
+  verified: '2026-11-24'
+  source: official page
+  notes: 인증 방식은 공식 페이지에서 재확인 필요
+- id: vivideo
+  name: Vivideo
+  vendor: Vivideo
+  lanes:
+  - video
+  transport: remote
+  url: https://api.vivideo.ai/mcp
+  auth: api_key
+  billing: freemium
+  docs: https://developers.vivideo.ai/mcp
+  verified: '2026-11-15'
+  source: mcp.film registry
+  env_var: VIVIDEO_API_KEY
+- id: wavespeed
+  name: WaveSpeed
+  vendor: WaveSpeed AI
+  lanes:
+  - video
+  - image
+  transport: remote
+  url: https://api.wavespeed.ai/mcp
+  auth: oauth
+  billing: credits
+  docs: https://wavespeed.ai/docs/mcp
+  verified: '2026-10-19'
+  source: mcp.film registry
+- id: wireflow
+  name: Wireflow
+  vendor: Wireflow
+  lanes:
+  - video
+  transport: remote
+  url: https://www.wireflow.ai/api/mcp
+  auth: oauth
+  billing: freemium
+  docs: https://www.wireflow.ai/docs/mcp
+  verified: '2026-10-21'
+  source: mcp.film registry
+- id: code-motion
+  name: 로컬 모션 그래픽
+  vendor: cineforge
+  lanes:
+  - video
+  transport: builtin
+  auth: none
+  billing: free
+  docs: ''
+  verified: ''
+  source: cineforge
+- id: google-genmedia
+  name: Google GenMedia (Veo·Imagen·Lyria·Chirp)
+  vendor: Google Cloud
+  lanes:
+  - video
+  - image
+  - voice
+  - music
+  transport: local
+  auth: login
+  billing: paid
+  docs: https://googlecloudplatform.github.io/genmedia-creative-studio/experiments/mcp-genmedia/
+  verified: '2026-11-24'
+  source: official docs
+  notes: Vertex AI 프로젝트와 서버별 바이너리 설치 필요(수동)
+- id: minimax
+  name: MiniMax (Hailuo)
+  vendor: MiniMax
+  lanes:
+  - video
+  - image
+  - voice
+  - music
+  transport: local
+  command:
+  - uvx
+  - minimax-mcp
+  auth: api_key
+  env_var: MINIMAX_API_KEY
+  billing: credits
+  docs: https://platform.minimax.io/docs/guides/mcp-guide
+  verified: '2026-11-24'
+  source: official docs
+- id: flux-bfl
+  name: FLUX
+  vendor: Black Forest Labs
+  lanes:
+  - image
+  transport: remote
+  url: https://mcp.bfl.ai
+  auth: oauth
+  billing: credits
+  docs: https://docs.bfl.ml/api_integration/mcp_integration
+  verified: '2026-10-08'
+  source: mcp.film registry
+- id: ideogram
+  name: Ideogram
+  vendor: Ideogram
+  lanes:
+  - image
+  transport: remote
+  url: https://mcp.ideogram.ai/mcp
+  auth: oauth
+  billing: paid
+  docs: https://ideogram.ai/features/mcp/
+  verified: '2026-10-09'
+  source: mcp.film registry
+- id: recraft
+  name: Recraft
+  vendor: Recraft
+  lanes:
+  - image
+  transport: remote
+  url: https://mcp.recraft.ai/mcp
+  auth: oauth
+  billing: credits
+  docs: https://www.recraft.ai/docs/mcp-reference/remote-server
+  verified: '2026-10-08'
+  source: mcp.film registry
+- id: codex-imagen
+  name: Codex Imagen
+  vendor: OpenAI (Codex)
+  lanes:
+  - image
+  transport: builtin
+  auth: login
+  billing: ChatGPT plan
+  docs: ''
+  verified: ''
+  source: cineforge
+- id: audiopod
+  name: AudioPod
+  vendor: AudioPod AI
+  lanes:
+  - voice
+  transport: remote
+  url: https://mcp.audiopod.ai
+  auth: api_key
+  billing: freemium
+  docs: https://docs.audiopod.ai/sdks/mcp
+  verified: '2026-11-04'
+  source: mcp.film registry
+  env_var: AUDIOPOD_API_KEY
+- id: cartesia
+  name: Cartesia
+  vendor: Cartesia
+  lanes:
+  - voice
+  transport: remote
+  url: https://mcp.cartesia.ai/mcp
+  auth: oauth
+  billing: freemium
+  docs: https://docs.cartesia.ai/tools/ai/mcp
+  verified: '2026-11-07'
+  source: mcp.film registry
+- id: elevenlabs
+  name: ElevenLabs
+  vendor: ElevenLabs
+  lanes:
+  - voice
+  - sfx
+  transport: remote
+  url: https://api.elevenlabs.io/v1/mcp
+  auth: oauth
+  billing: freemium
+  docs: https://elevenlabs.io/mcp
+  verified: '2026-10-29'
+  source: mcp.film registry
+- id: fish-audio
+  name: Fish Audio
+  vendor: Fish Audio
+  lanes:
+  - voice
+  transport: remote
+  url: https://api.fish.audio/mcp
+  auth: oauth
+  billing: freemium
+  docs: https://docs.fish.audio/overview/mcp
+  verified: '2026-10-26'
+  source: mcp.film registry
+- id: native-audio
+  name: 영상 모델 자체 음성
+  vendor: (생성 모델)
+  lanes:
+  - voice
+  transport: builtin
+  auth: none
+  billing: video provider
+  docs: ''
+  verified: ''
+  source: cineforge
+- id: typecast
+  name: Typecast
+  vendor: Neosapience
+  lanes:
+  - voice
+  transport: cli
+  command:
+  - cast
+  auth: login
+  billing: credits
+  docs: https://typecast.ai
+  verified: '2026-11-24'
+  source: official Cast CLI
+  notes: MCP가 아닌 공식 CLI 로그인
+- id: artyfile
+  name: Artyfile Music Licensing
+  vendor: Artyfile LTD
+  lanes:
+  - music
+  transport: remote
+  url: https://artyfile.com/api/mcp
+  auth: none
+  billing: paid
+  docs: https://artyfile.com/llms.txt
+  verified: '2026-10-10'
+  source: mcp.film registry
+- id: doseedo
+  name: Doseedo Film Score
+  vendor: Doseedo
+  lanes:
+  - music
+  transport: remote
+  url: https://api.doseedo.com/mcp/film
+  auth: oauth
+  billing: freemium
+  docs: https://doseedo.com/guides/score-a-film-with-an-ai-agent
+  verified: '2026-11-07'
+  source: mcp.film registry
+- id: epidemic-sound
+  name: Epidemic Sound
+  vendor: Epidemic Sound
+  lanes:
+  - music
+  transport: remote
+  url: https://www.epidemicsound.com/a/mcp-service/mcp
+  auth: api_key
+  billing: paid
+  docs: https://developers.epidemicsite.com/docs/mcp/
+  verified: '2026-10-02'
+  source: mcp.film registry
+  env_var: EPIDEMIC_SOUND_API_KEY
+- id: suno
+  name: Suno (beta)
+  vendor: Suno
+  lanes:
+  - music
+  transport: remote
+  url: https://api.suno.com/mcp
+  auth: oauth
+  billing: credits
+  docs: https://suno.com/mcp
+  verified: '2026-11-03'
+  source: mcp.film registry
+- id: words-into-music
+  name: Words into Music
+  vendor: Words into Music (Savuko)
+  lanes:
+  - music
+  transport: remote
+  url: https://mcp.wordsintomusic.com/mcp
+  auth: oauth
+  billing: credits
+  docs: https://wordsintomusic.com/mcp/
+  verified: '2026-10-26'
+  source: mcp.film registry
+- id: none
+  name: 사용 안 함
+  vendor: ''
+  lanes:
+  - music
+  - sfx
+  - avatar
+  transport: none
+  auth: none
+  billing: free
+  docs: ''
+  verified: ''
+  source: cineforge
+- id: audiolab
+  name: AudioLab
+  vendor: AudioLaunch
+  lanes:
+  - sfx
+  transport: remote
+  url: https://audiolab.tools/mcp
+  auth: api_key
+  billing: freemium
+  docs: https://audiolab.tools/api
+  verified: '2026-11-09'
+  source: mcp.film registry
+  env_var: AUDIOLAB_API_KEY
+- id: mirelo
+  name: Mirelo
+  vendor: Mirelo AI
+  lanes:
+  - sfx
+  transport: remote
+  url: https://mcp.mirelo.ai/mcp
+  auth: oauth
+  billing: credits
+  docs: https://mirelo.ai/mcp
+  verified: '2026-10-03'
+  source: mcp.film registry
+- id: local-ambience
+  name: 로컬 앰비언스(ffmpeg)
+  vendor: cineforge
+  lanes:
+  - sfx
+  - music
+  transport: builtin
+  auth: none
+  billing: free
+  docs: ''
+  verified: ''
+  source: cineforge
+- id: akool
+  name: AKOOL
+  vendor: AKOOL
+  lanes:
+  - avatar
+  transport: remote
+  url: https://openapi.akool.com/mcp/v1
+  auth: api_key
+  billing: credits
+  docs: https://docs.akool.com/mcp-server
+  verified: '2026-10-04'
+  source: mcp.film registry
+  env_var: AKOOL_API_KEY
+- id: apatero
+  name: Apatero Studio
+  vendor: Apatero
+  lanes:
+  - avatar
+  transport: remote
+  url: https://mcp.apatero.ai/mcp
+  auth: oauth
+  billing: credits
+  docs: https://apatero.ai/mcp
+  verified: '2026-11-04'
+  source: mcp.film registry
+- id: bithuman
+  name: bitHuman
+  vendor: bitHuman
+  lanes:
+  - avatar
+  transport: remote
+  url: https://mcp.bithuman.ai/mcp
+  auth: api_key
+  billing: credits
+  docs: https://docs.bithuman.ai/build/mcp
+  verified: '2026-10-08'
+  source: mcp.film registry
+  env_var: BITHUMAN_API_SECRET
+- id: clipwright
+  name: Clipwright
+  vendor: Clipwright (Dimantika sp. z o.o.)
+  lanes:
+  - avatar
+  transport: remote
+  url: https://mcp.clipwright.io/mcp
+  auth: oauth
+  billing: credits
+  docs: https://clipwright.io/docs
+  verified: '2026-10-26'
+  source: mcp.film registry
+- id: craftstory
+  name: CraftStory
+  vendor: CraftStory (itseez3d)
+  lanes:
+  - avatar
+  transport: remote
+  url: https://mcp.craftstory.com/mcp
+  auth: api_key
+  billing: credits
+  docs: https://craftstory.com/mcp/
+  verified: '2026-10-20'
+  source: mcp.film registry
+  env_var: CRAFTSTORY_API_KEY
+- id: d-id
+  name: D-ID
+  vendor: D-ID
+  lanes:
+  - avatar
+  transport: remote
+  url: https://docs.d-id.com/mcp
+  auth: api_key
+  billing: freemium
+  docs: https://docs.d-id.com/docs/mcp
+  verified: '2026-10-22'
+  source: mcp.film registry
+  env_var: D_ID_API_KEY
+- id: heygen
+  name: HeyGen Remote
+  vendor: HeyGen
+  lanes:
+  - avatar
+  transport: remote
+  url: https://mcp.heygen.com/mcp/v1/
+  auth: oauth
+  billing: credits
+  docs: https://developers.heygen.com/mcp/overview
+  verified: '2026-10-20'
+  source: mcp.film registry
+- id: sync-labs
+  name: Sync
+  vendor: Sync (sync.so)
+  lanes:
+  - avatar
+  transport: remote
+  url: https://mcp.sync.so/mcp
+  auth: api_key
+  billing: paid
+  docs: https://sync.so/docs/plugins-and-extensions/mcp-server
+  verified: '2026-10-27'
+  source: mcp.film registry
+  env_var: SYNC_API_KEY
+- id: synthesia
+  name: Synthesia
+  vendor: Synthesia
+  lanes:
+  - avatar
+  transport: remote
+  url: https://mcp.synthesia.io/mcp
+  auth: oauth
+  billing: subscription
+  docs: https://docs.synthesia.io/reference/synthesia-mcp
+  verified: '2026-11-24'
+  source: official docs
+- id: veed-fabric
+  name: VEED Fabric
+  vendor: VEED
+  lanes:
+  - avatar
+  transport: remote
+  url: https://www.veed.io/api/v1/mcp
+  auth: oauth
+  billing: credits
+  docs: https://veedstudio.github.io/veed-fabric-mcp/
+  verified: '2026-11-10'
+  source: mcp.film registry

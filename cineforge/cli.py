@@ -103,6 +103,18 @@ def cmd_new(args: argparse.Namespace) -> int:
         inputs["external_voice"] = True
     if args.voice_provider:
         inputs["voice_provider"] = args.voice_provider
+    from cineforge import provider_choice, provider_registry
+    try:
+        chosen = provider_registry.parse_flag(args.providers) if args.providers else {}
+    except ValueError as exc:
+        print(f"--providers: {exc}", file=sys.stderr)
+        return 2
+    if args.voice_provider and "voice" not in chosen:
+        chosen["voice"] = "fish-audio" if args.voice_provider == "fish_audio" else args.voice_provider
+    if chosen:
+        provider_choice.apply(inputs, chosen, "flag")
+    elif not args.non_interactive and sys.stdin.isatty():
+        provider_choice.apply(inputs, provider_choice.choose_interactive(), "user")
     cut_revision = None
     if args.cut_revision is not None:
         scope, preserve = args.cut_revision
@@ -748,12 +760,24 @@ def build_parser() -> argparse.ArgumentParser:
     speech.add_argument("--no-speech", action="store_true", help="대사·음성 없음(효과음·연출만)")
     n.add_argument("--external-voice", action="store_true", help="대사를 영상 모델 네이티브가 아닌 별도 음성(TTS)으로 제작(기본: 네이티브)")
     n.add_argument("--voice-provider", choices=["fish_audio", "typecast"], help="별도 음성 TTS 서비스(지정 시 --external-voice 포함, 기본 fish_audio)")
+    n.add_argument("--providers", help="제작 서비스 지정: 용도=id[,용도=id] (예: video=ludyte,voice=typecast). `cineforge services list`로 확인")
     n.add_argument("--auto-accept-plan", action="store_true", help="기획안 자동 검수 통과 시 사용자 승인으로 간주(사용자가 명시적으로 위임)")
     n.add_argument("--nonstop", action=argparse.BooleanOptionalAction, default=True, help="기본: 자동 기획, --no-nonstop: 수동 검토")
     n.add_argument("--image-limit", type=int, help="Codex Imagen 실행·참조 전송 범위 상한(작품 누적 건수). 비용 승인 아님")
     n.add_argument("--until", help="이 단계까지만 실행(예: S03_plan)")
     n.add_argument("--goal", choices=["auto", "text_storyboard", "delivery_mp4"], help="요청의 완료 조건을 저장하고 그 범위 안에서만 실행")
     n.set_defaults(func=cmd_new)
+
+    sv = sub.add_parser("services", help="제작 서비스(영상·이미지·음성·음악·효과음·아바타) 목록과 모든 에이전트에 MCP 등록")
+    sv_sub = sv.add_subparsers(dest="services_cmd", required=True)
+    pl = sv_sub.add_parser("list", help="용도별 서비스와 설치 여부")
+    pl.add_argument("--lane", choices=["video", "image", "voice", "music", "sfx", "avatar"])
+    pl.add_argument("--json", action="store_true")
+    ps = sv_sub.add_parser("setup", help="이 PC의 모든 에이전트에 서비스 MCP 등록(--yes 없으면 미리보기)")
+    ps.add_argument("id")
+    ps.add_argument("--agents", help="쉼표로 제한: pi,codex,opencode,claude,gemini")
+    ps.add_argument("--yes", action="store_true", help="실제로 등록")
+    sv.set_defaults(func=cmd_services)
 
     g = sub.add_parser("goal", help="목표 확인·확정·자동 진행(--goal로 만든 프로젝트)")
     gs = g.add_subparsers(dest="goal_cmd", required=True)
@@ -951,6 +975,51 @@ def build_parser() -> argparse.ArgumentParser:
     an.add_argument("--provider", choices=MODES)
     an.set_defaults(func=cmd_analyze)
     return p
+
+
+def cmd_services(args: argparse.Namespace) -> int:
+    from cineforge import agent_register, mcp_discovery, provider_registry as reg
+
+    if args.services_cmd == "list":
+        available = reg.availability()
+        rows = reg.by_lane(args.lane) if args.lane else reg.load()
+        if args.json:
+            print(json.dumps([dict(r, available=available.get(r["id"], False)) for r in rows], ensure_ascii=False, indent=2))
+            return 0
+        lanes = [args.lane] if args.lane else list(reg.LANES)
+        for lane in lanes:
+            print(f"\n■ {reg.LANE_LABEL[lane]}")
+            for r in reg.question(available)["lanes"][lane]["options"]:
+                print(f"  {'✓' if r['available'] else ' '} {r['id']:<22} {r['name'][:28]:<28} {r['auth']:<8} {r['billing']}")
+        print("\n✓ = 이미 에이전트에 등록됨. 등록: cineforge services setup <id> --yes")
+        return 0
+    try:
+        provider = reg.get(args.id)
+    except ValueError as exc:
+        print(str(exc), file=sys.stderr)
+        return 2
+    agents = [a.strip() for a in args.agents.split(",")] if args.agents else agent_register.detect()
+    if not agents:
+        print("등록할 에이전트를 찾지 못했습니다(pi, codex, opencode, claude, gemini).", file=sys.stderr)
+        return 1
+    steps = agent_register.plan(provider, agents, mcp_discovery.discover(), which=shutil.which)
+    print(f"{provider['name']} [{provider['id']}] · {provider['auth']} · {provider.get('url') or provider.get('docs', '')}")
+    for s in steps:
+        target = " ".join(s.argv) if s.argv else (f"{s.file} ← {json.dumps(s.entry, ensure_ascii=False)}" if s.file else "")
+        print(f"  {s.agent:<9} {s.action:<7} {s.reason}{(' | ' + target) if target else ''}")
+    if not args.yes:
+        print("\n미리보기입니다. 적용하려면 --yes를 붙여 다시 실행하세요.")
+        return 0
+    results = agent_register.apply(steps)
+    failed = [r for r in results if not r["ok"]]
+    for r in results:
+        print(f"  {'✓' if r['ok'] else '✕'} {r['agent']:<9} {r['action']:<7} {r['detail'][:160]}")
+    added = [r["agent"] for r in results if r["action"] == "add" and r["ok"]]
+    if added:
+        print("\n로그인(에이전트마다 처음 한 번):")
+        for agent, hint in agent_register.login_hints(provider, added).items():
+            print(f"  {agent:<9} {hint}")
+    return 1 if failed else 0
 
 
 def main(argv: list[str] | None = None) -> int:

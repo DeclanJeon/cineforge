@@ -130,7 +130,8 @@ def test_host_new_keeps_input_json_selection_after_intake(tmp_path):
     seed_path = tmp_path / "seed.json"
     seed_path.write_text(json.dumps(seed), encoding="utf-8")
     assert main(["new", "우주에서 촛불을 켜면 생기는 일. 9:16 40초 지식 쇼츠", "--projects-dir", str(tmp_path),
-                 "--project-id", "p", "--provider", "host", "--non-interactive", "--input-json", str(seed_path)]) == 0
+                 "--project-id", "p", "--provider", "host", "--non-interactive", "--input-json", str(seed_path),
+                 "--providers", "video=ludyte"]) == 0
     root = tmp_path / "p"
     answers = {k: {"noul": 0.1} for k in ("script", "scenario", "reference", "plot_concept", "lead_character", "voice", "direction")}
     (root / "agent_io/responses/intake_factors.json").write_text(json.dumps({"answers": answers}), encoding="utf-8")

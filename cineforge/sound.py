@@ -67,6 +67,20 @@ NATIVE = ('native', 'video_native_audio')
 VOICE_LANES = {'fish_audio': ('fish_audio', 'fish_audio_tts'), 'typecast': ('typecast', 'typecast_tts')}
 
 
+def voice_lane(voice_provider: str) -> tuple[str, str]:
+    """(provider, tool) for external dialogue: built-in lanes, else any registered voice service."""
+    if voice_provider in VOICE_LANES:
+        return VOICE_LANES[voice_provider]
+    from . import provider_registry
+    try:
+        row = provider_registry.get(voice_provider)
+    except ValueError:
+        row = None
+    if not row or 'voice' not in row['lanes'] or row['transport'] in ('builtin', 'none'):
+        raise SoundError(f'unsupported voice provider: {voice_provider}')
+    return row['id'], f"{row['id'].replace('-', '_')}_tts"
+
+
 def plan(cues: list[dict[str, object]], *, mood: str, era: str, external_voice: bool = False,
          voice_provider: str | None = None) -> list[Cue]:
     """Turn SSOT cues into provider-addressed prompts.
@@ -81,9 +95,7 @@ def plan(cues: list[dict[str, object]], *, mood: str, era: str, external_voice: 
         if kind == 'DIALOGUE' and not external_voice:
             provider, tool = NATIVE
         elif kind == 'DIALOGUE' and voice_provider:
-            if voice_provider not in VOICE_LANES:
-                raise SoundError(f'unsupported voice provider: {voice_provider}')
-            provider, tool = VOICE_LANES[voice_provider]
+            provider, tool = voice_lane(voice_provider)
         description = str(raw['description'])
         span = f"{_seconds(float(raw['tc_in']))}~{_seconds(float(raw['tc_out']))}"
         if kind == 'OST':
