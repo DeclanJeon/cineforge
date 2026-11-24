@@ -14,10 +14,10 @@ from typing import Any, Callable
 
 AGENTS: dict[str, dict[str, Any]] = {
     "pi": {
-        "label": "pi (ChatGPT·Claude·Copilot 계정을 골라 쓰는 에이전트)",
+        "label": "pi (등록된 모든 프로바이더를 그대로 사용)",
         "bin": "pi",
         "install": "pi가 필요합니다. 설치: npm install -g @earendil-works/pi-coding-agent (안내: https://pi.dev)",
-        # Subscription sign-ins pi supports; each is checked with `pi auth check` and signed in with `pi auth login`.
+        # Offered only when pi has no usable provider yet; otherwise pi opens as the user already uses it.
         "accounts": [("openai-codex", "ChatGPT 계정"), ("anthropic", "Claude 계정"), ("github-copilot", "GitHub Copilot 계정")],
     },
     "codex": {
@@ -75,11 +75,28 @@ def _launch(argv: list[str], env: dict[str, str]) -> int:
     return 0  # pragma: no cover - exec does not return
 
 
-def _choose(ask: Callable[[str], str], printer: Callable[[str], None], last: str) -> str:
+def _capture(argv: list[str]) -> str:
+    try:
+        return subprocess.run(argv, capture_output=True, text=True, timeout=30).stdout
+    except (OSError, subprocess.SubprocessError):
+        return ""
+
+
+def pi_providers(capture: Callable[[list[str]], str]) -> dict[str, int]:
+    """Providers pi can use right now (built-in sign-ins, API keys and custom ones), with model counts."""
+    counts: dict[str, int] = {}
+    for line in capture(["pi", "--list-models"]).splitlines()[1:]:
+        cells = line.split()
+        if len(cells) >= 2:
+            counts[cells[0]] = counts.get(cells[0], 0) + 1
+    return counts
+
+
+def _choose(ask: Callable[[str], str], printer: Callable[[str], None], last: str, installed: set[str]) -> str:
     ids = list(AGENTS)
-    printer("\n어떤 AI로 진행할까요?")
+    printer("\n어떤 AI로 진행할까요? (✓ = 이 PC에 설치됨)")
     for n, key in enumerate(ids, start=1):
-        printer(f"  {n}. {AGENTS[key]['label']} [{key}]")
+        printer(f"  {n}. {'✓' if key in installed else ' '} {AGENTS[key]['label']} [{key}]")
     while True:
         raw = ask(f"선택 [{last}]: ").strip().lower()
         if not raw:
@@ -91,20 +108,18 @@ def _choose(ask: Callable[[str], str], printer: Callable[[str], None], last: str
         printer("목록의 번호나 이름을 입력하세요.")
 
 
-def _pi_account(agent: dict[str, Any], ask: Callable[[str], str], printer: Callable[[str], None],
-                run: Callable[[list[str]], int], remembered: str | None) -> str | None:
-    """Pick the AI account pi should use; sign in through the browser when it is not ready."""
+def _pi_sign_in(agent: dict[str, Any], ask: Callable[[str], str], printer: Callable[[str], None],
+                run: Callable[[list[str]], int], capture: Callable[[list[str]], str]) -> bool:
+    """pi has no usable provider yet: sign in to one account in the browser."""
     accounts = agent["accounts"]
     ids = [acc for acc, _ in accounts]
-    ready = {acc: run(["pi", "auth", "check", "--provider", acc, "--no-refresh"]) == 0 for acc in ids}
-    default = remembered if remembered in ids else next((acc for acc in ids if ready[acc]), ids[0])
-    printer("\n어떤 계정으로 진행할까요? (✓ = 로그인됨, 세션 안에서 /model로 바꿀 수 있습니다)")
+    printer("\npi에 등록된 프로바이더가 없습니다. 어떤 계정으로 로그인할까요?")
     for n, (acc, label) in enumerate(accounts, start=1):
-        printer(f"  {n}. {'✓' if ready[acc] else ' '} {label} [{acc}]")
+        printer(f"  {n}. {label} [{acc}]")
     while True:
-        raw = ask(f"선택 [{default}]: ").strip().lower()
+        raw = ask(f"선택 [{ids[0]}]: ").strip().lower()
         if not raw:
-            chosen = default
+            chosen = ids[0]
         elif raw.isdigit() and 1 <= int(raw) <= len(ids):
             chosen = ids[int(raw) - 1]
         elif raw in ids:
@@ -113,31 +128,30 @@ def _pi_account(agent: dict[str, Any], ask: Callable[[str], str], printer: Calla
             printer("목록의 번호나 이름을 입력하세요.")
             continue
         break
-    if not ready[chosen]:
-        printer("로그인이 필요합니다. 브라우저에서 계정으로 로그인해 주세요.")
-        run(["pi", "auth", "login", chosen])
-        if run(["pi", "auth", "check", "--provider", chosen, "--no-refresh"]) != 0:
-            printer("로그인을 확인하지 못했습니다. 다시 `cineforge`를 실행해 주세요.")
-            return None
-    return chosen
+    run(["pi", "auth", "login", chosen])
+    if not pi_providers(capture):
+        printer("로그인을 확인하지 못했습니다. 다시 `cineforge`를 실행해 주세요.")
+        return False
+    return True
 
 
 def start(*, ask: Callable[[str], str] = input, printer: Callable[[str], None] = print,
           which: Callable[[str], str | None] = shutil.which, run: Callable[[list[str]], int] | None = None,
           launch: Callable[[list[str], dict[str, str]], int] | None = None, config: Path | None = None,
-          env: dict[str, str] | None = None) -> int:
-    run, launch = run or _run, launch or _launch
+          env: dict[str, str] | None = None, capture: Callable[[list[str]], str] | None = None) -> int:
+    run, launch, capture = run or _run, launch or _launch, capture or _capture
     env = dict(os.environ if env is None else env)
     config = config or config_path()
     try:
         saved = json.loads(config.read_text(encoding="utf-8"))
     except (OSError, ValueError):
         saved = {}
-    last = saved.get("agent", DEFAULT)
+    installed = {key for key, spec in AGENTS.items() if which(spec["bin"])}
+    last = saved.get("agent") or next((key for key in AGENTS if key in installed), DEFAULT)
     if last not in AGENTS:
         last = DEFAULT
     printer("CineForge — 요구사항 한 번, 선택 한 번. 그다음은 논스톱.")
-    key = _choose(ask, printer, last)
+    key = _choose(ask, printer, last, installed)
     agent = AGENTS[key]
     if not which(agent["bin"]):
         printer(agent["install"])
@@ -145,12 +159,15 @@ def start(*, ask: Callable[[str], str] = input, printer: Callable[[str], None] =
     remember: dict[str, str] = {"agent": key}
     prompt = PROMPT.format(cmd=env.get("CINEFORGE_CMD") or "cineforge")
     if "accounts" in agent:
-        account = _pi_account(agent, ask, printer, run, saved.get("account") if last == key else None)
-        if account is None:
+        providers = pi_providers(capture)
+        if not providers and not _pi_sign_in(agent, ask, printer, run, capture):
             return 1
-        remember["account"] = account
+        providers = providers or pi_providers(capture)
+        printer("pi에 등록된 프로바이더: " + ", ".join(f"{name}({count})" for name, count in sorted(providers.items()))
+                + " — 세션 안에서 /model로 바꿀 수 있습니다.")
+        # pi opens exactly as the user already uses it (its own default model, every provider available).
         # Rules go in the system prompt so they survive long sessions; the opening message makes the agent ask first.
-        argv = [agent["bin"], "--models", f"{account}/*", "--append-system-prompt", prompt, OPENING]
+        argv = [agent["bin"], "--append-system-prompt", prompt, OPENING]
     else:
         if agent.get("status") and run(agent["status"]) != 0:
             printer("로그인이 필요합니다. 브라우저에서 계정으로 로그인해 주세요.")

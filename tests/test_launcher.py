@@ -53,7 +53,11 @@ class Recorder:
 
     def ask(self, prompt):
         self.out.append(prompt)
+        self.prompts = getattr(self, "prompts", []) + [prompt]
         return next(self.answers, "")
+
+    def out_prompts(self):
+        return getattr(self, "prompts", [])
 
     def which(self, name):
         return f"/usr/bin/{name}" if (name == "codex" and self.codex) else None
@@ -73,7 +77,7 @@ class Recorder:
 
     def start(self, tmp_path, **kw):
         return launcher.start(ask=self.ask, printer=self.out.append, which=self.which, run=self.run, launch=self.launch,
-                              config=tmp_path / "agent.json", env={"PATH": "/usr/bin"}, **kw)
+                              capture=lambda argv: "", config=tmp_path / "agent.json", env={"PATH": "/usr/bin"}, **kw)
 
 
 def test_launcher_asks_ai_first_then_opens_codex_in_agent_mode(tmp_path):
@@ -122,62 +126,77 @@ def test_launcher_tells_agent_which_cineforge_command_to_run(tmp_path):
     assert "/opt/dev/cineforge new" in r.launched[0][1]
 
 
-# ---------- pi: one agent, several AI accounts ----------
+# ---------- pi: the user's existing pi, with every provider already registered ----------
+
+LIST = """provider      model            context  max-out  thinking  images
+anthropic     claude-opus-5    1M       128K     yes       yes
+anthropic     claude-haiku-5   1M       128K     yes       yes
+openai-codex  gpt-6.1-sol      1M       128K     yes       yes
+openrouter    openrouter/auto  2M       64K      yes       yes
+my-gateway    local-model      32K      8K       no        no
+"""
+
 
 class PiRecorder(Recorder):
-    def __init__(self, answers=(), ready=("openai-codex",), login_ok=True, pi=True):
+    def __init__(self, answers=(), listing=LIST, login_ok=True, pi=True):
         super().__init__(answers=answers)
-        self.ready, self.login_ok, self.pi = set(ready), login_ok, pi
+        self.listing, self.login_ok, self.pi = listing, login_ok, pi
 
     def which(self, name):
         return f"/usr/bin/{name}" if (name == "pi" and self.pi) else None
 
+    def capture(self, argv):
+        self.calls.append(argv)
+        return self.listing if argv == ["pi", "--list-models"] else ""
+
     def run(self, argv):
         self.calls.append(argv)
-        if argv[:3] == ["pi", "auth", "check"]:
-            return 0 if argv[argv.index("--provider") + 1] in self.ready else 1
         if argv[:3] == ["pi", "auth", "login"]:
             if self.login_ok:
-                self.ready.add(argv[3])
+                self.listing = LIST
             return 0 if self.login_ok else 1
         return 0
 
+    def start(self, tmp_path, **kw):
+        return launcher.start(ask=self.ask, printer=self.out.append, which=self.which, run=self.run, launch=self.launch,
+                              capture=self.capture, config=tmp_path / "agent.json", env={"PATH": "/usr/bin"}, **kw)
 
-def test_pi_is_the_default_ai_and_lists_accounts_with_readiness(tmp_path):
-    r = PiRecorder(answers=["", ""], ready=("anthropic",))
+
+def test_pi_opens_as_is_with_every_registered_provider(tmp_path):
+    r = PiRecorder(answers=[""])                      # Enter = pi (default); no account question follows
     assert r.start(tmp_path) == 0
     text = "\n".join(r.out)
-    assert "pi" in text and "ChatGPT" in text and "Claude" in text and "GitHub Copilot" in text
-    assert any(line.strip().startswith("2. ✓") and "Claude" in line for line in r.out)
+    for provider in ("anthropic", "openai-codex", "openrouter", "my-gateway"):   # custom providers too
+        assert provider in text
     argv, env = r.launched
-    assert argv[0] == "pi" and argv[argv.index("--models") + 1] == "anthropic/*"   # Enter = the signed-in account
-    assert env["CINEFORGE_AGENT_MODE"] == "1"
-    rules = argv[argv.index("--append-system-prompt") + 1]
-    assert "user_choice" in rules and "cineforge new" in rules
-    assert "영상" in argv[-1] and not argv[-1].startswith("-")                     # opening message makes the agent ask first
+    assert argv[0] == "pi" and "--models" not in argv and "--model" not in argv and "--provider" not in argv
+    assert "user_choice" in argv[argv.index("--append-system-prompt") + 1]
+    assert "영상" in argv[-1] and env["CINEFORGE_AGENT_MODE"] == "1"
+    assert len(r.out_prompts()) == 1                  # only the AI question was asked
     assert not [c for c in r.calls if c[:3] == ["pi", "auth", "login"]]
+    assert json.loads((tmp_path / "agent.json").read_text(encoding="utf-8")) == {"agent": "pi"}
 
 
-def test_pi_signs_in_through_browser_when_chosen_account_is_not_ready(tmp_path):
-    r = PiRecorder(answers=["pi", "anthropic"], ready=("openai-codex",))
+def test_pi_without_any_provider_offers_sign_in_then_opens(tmp_path):
+    r = PiRecorder(answers=["pi", "2"], listing="provider  model\n")
     assert r.start(tmp_path) == 0
     assert ["pi", "auth", "login", "anthropic"] in r.calls
-    assert r.launched[0][r.launched[0].index("--models") + 1] == "anthropic/*"
-    assert json.loads((tmp_path / "agent.json").read_text(encoding="utf-8")) == {"agent": "pi", "account": "anthropic"}
+    assert "--models" not in r.launched[0]
 
 
 def test_pi_stops_when_sign_in_fails_and_explains_missing_pi(tmp_path):
-    r = PiRecorder(answers=["pi", "3"], ready=(), login_ok=False)
+    r = PiRecorder(answers=["pi", "1"], listing="", login_ok=False)
     assert r.start(tmp_path) == 1 and r.launched is None
     r2 = PiRecorder(answers=["pi"], pi=False)
     assert r2.start(tmp_path) == 1 and "pi" in "\n".join(r2.out) and r2.launched is None
 
 
-def test_pi_remembers_last_account_as_default(tmp_path):
-    (tmp_path / "agent.json").write_text(json.dumps({"agent": "pi", "account": "anthropic"}), encoding="utf-8")
-    r = PiRecorder(answers=["", ""], ready=("openai-codex", "anthropic"))
+def test_menu_marks_installed_agents_and_defaults_to_an_installed_one(tmp_path):
+    r = Recorder(answers=[""])                        # only codex is installed in this recorder
     assert r.start(tmp_path) == 0
-    assert r.launched[0][r.launched[0].index("--models") + 1] == "anthropic/*"
+    assert any(line.strip().startswith("2. ✓") and "[codex]" in line for line in r.out)
+    assert any(line.strip().startswith("1.") and "[pi]" in line and "✓" not in line for line in r.out)
+    assert r.launched[0][0] == "codex"
 
 
 # ---------- Claude Code and agy (Antigravity CLI) ----------

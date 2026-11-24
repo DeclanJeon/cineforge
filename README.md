@@ -177,7 +177,14 @@ cineforge deliver <project>                     # final/<project>.mp4 + .srt + d
 
 ## 바로 시작: `cineforge`
 
-인자 없이 `cineforge`를 터미널에서 실행하면 어떤 AI로 진행할지 묻습니다. **pi**(기본)를 고르면 ChatGPT·Claude·GitHub Copilot 중 어떤 계정으로 할지 묻고, 로그인이 안 돼 있으면 `pi auth login <계정>`으로 브라우저 로그인을 띄운 뒤 그 계정의 모델로 pi 세션을 엽니다(세션 안에서 `/model`로 전환 가능). **Codex**는 `codex login`, **Claude Code**는 `claude auth status`/`claude auth login`으로 확인·로그인한 뒤 세션을 엽니다. **agy**(Antigravity CLI)는 상태 확인 명령이 없어 바로 `agy -i`로 열고, 로그인이 필요하면 agy가 Google 로그인을 띄웁니다. 어느 쪽이든 제작 규칙이 미리 들어갑니다. 마지막 선택은 `~/.config/cineforge/agent.json`에 기억합니다. 터미널이 아니면(스크립트·파이프) 기존처럼 사용법 오류를 냅니다.
+인자 없이 `cineforge`를 터미널에서 실행하면 어떤 AI로 진행할지 묻습니다. 이 PC에 설치된 에이전트는 ✓로 표시하고, 지난번 선택(없으면 설치된 첫 에이전트)이 기본값입니다.
+
+- **pi**: 평소 쓰던 pi를 그대로 엽니다. `pi --list-models`로 이미 등록된 프로바이더(구독 로그인·API 키·직접 추가한 것 포함)를 읽어 보여 주고, 모델 범위를 제한하지 않으므로 세션 안에서 `/model`로 전부 쓸 수 있습니다. 등록된 프로바이더가 하나도 없을 때만 어떤 계정으로 로그인할지 묻고 `pi auth login`을 실행합니다.
+- **Codex**: `codex login` 확인 후 세션을 엽니다.
+- **Claude Code**: `claude auth status`/`claude auth login`으로 확인·로그인한 뒤 세션을 엽니다.
+- **agy**(Antigravity CLI): 상태 확인 명령이 없어 바로 `agy -i`로 열고, 로그인이 필요하면 agy가 Google 로그인을 띄웁니다.
+
+어느 쪽이든 제작 규칙이 미리 들어갑니다. 마지막 선택은 `~/.config/cineforge/agent.json`에 기억합니다. 터미널이 아니면(스크립트·파이프) 기존처럼 사용법 오류를 냅니다.
 
 에이전트 안에서 직접 `cineforge new …`를 실행할 때는 `--provider host`가 없어도 됩니다. pi·Claude Code·Codex 환경을 감지해 질문을 에이전트에게 넘깁니다. `CINEFORGE_AGENT_MODE=1`/`0`으로 강제로 켜거나 끌 수 있습니다.
 
