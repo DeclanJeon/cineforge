@@ -107,9 +107,45 @@ def plan(provider: dict[str, Any], agents: list[str], existing: list[dict[str, A
     return steps
 
 
+# Some agent CLIs register the server and then start an interactive OAuth wait (codex prints this line first).
+SUCCESS_MARKER = {"codex": "Added global MCP server"}
+
+
+def _stream_run(argv: list[str], *, success_marker: str | None = None, timeout: float = 60) -> tuple[int, str]:
+    """Run a CLI; if it prints the success marker, stop there instead of waiting on a browser login."""
+    import selectors
+    import time
+
+    proc = subprocess.Popen(argv, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, stdin=subprocess.DEVNULL)
+    lines: list[str] = []
+    sel = selectors.DefaultSelector()
+    sel.register(proc.stdout, selectors.EVENT_READ)
+    deadline = time.monotonic() + timeout
+    try:
+        while time.monotonic() < deadline:
+            if not sel.select(timeout=max(0.0, min(1.0, deadline - time.monotonic()))):
+                if proc.poll() is not None:
+                    break
+                continue
+            line = proc.stdout.readline()
+            if not line:
+                break
+            lines.append(line.rstrip())
+            if success_marker and success_marker in line:
+                proc.terminate()
+                return 0, "\n".join(lines)
+        else:
+            proc.kill()
+            return 124, "\n".join(lines + [f"timed out after {timeout:g}s"])
+        return proc.wait(timeout=5), "\n".join(lines)
+    finally:
+        if proc.poll() is None:
+            proc.kill()
+        sel.close()
+
+
 def _run(argv: list[str]) -> tuple[int, str]:
-    proc = subprocess.run(argv, capture_output=True, text=True, timeout=60)
-    return proc.returncode, (proc.stdout + proc.stderr).strip()
+    return _stream_run(argv, success_marker=SUCCESS_MARKER.get(argv[0]))
 
 
 def _edit_gemini(home: Path, name: str, entry: dict[str, Any]) -> str:

@@ -93,3 +93,15 @@ def test_login_hints_cover_each_registered_agent():
     hints = ar.login_hints(reg.get("pika"), ["pi", "codex", "opencode", "gemini", "claude"])
     assert "pi mcp login pika" in hints["pi"] and "codex mcp login pika" in hints["codex"]
     assert set(hints) == {"pi", "codex", "opencode", "gemini", "claude"}
+
+
+def test_runner_stops_at_success_line_instead_of_waiting_for_oauth(tmp_path):
+    script = tmp_path / "fake-codex"
+    script.write_text("#!/bin/sh\necho \"Added global MCP server 'pika'.\"\necho 'Starting OAuth flow'\nsleep 30\n", encoding="utf-8")
+    script.chmod(0o755)
+    import time
+    start = time.monotonic()
+    code, out = ar._stream_run([str(script)], success_marker="Added global MCP server", timeout=20)
+    assert code == 0 and "Added global MCP server" in out
+    assert time.monotonic() - start < 5
+    assert "codex mcp login" in ar.login_hints({"id": "pika", "auth": "oauth"}, ["codex"])["codex"]
