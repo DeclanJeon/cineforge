@@ -119,3 +119,12 @@ def _never_touch_real_agents(monkeypatch, tmp_path):
         return real_edit(home, name, entry)
 
     monkeypatch.setattr(agent_register, "_edit_gemini", guarded_edit)
+
+
+@pytest.fixture(autouse=True)
+def _outside_any_agent(monkeypatch):
+    """Tests often run inside a coding agent; agent auto-detection must not leak into them."""
+    from cineforge.providers.router import AGENT_ENV
+
+    for name in (*AGENT_ENV, "CINEFORGE_AGENT_MODE"):
+        monkeypatch.delenv(name, raising=False)

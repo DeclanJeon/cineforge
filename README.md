@@ -175,6 +175,12 @@ cineforge deliver <project>                     # final/<project>.mp4 + .srt + d
 - `cineforge skills [--root PATH]`: 설치된 팩의 CineForge 계약과 파일 해시를 검사합니다. 납품에는 프로젝트에 고정한 팩 정보를 `delivery.json.skill_pack`에 남기며, 파일 해시를 도구 사용 증거로 간주하지 않습니다.
 - 전체 대기·복구·영수증 규칙은 [제작 완결 설계](docs/superpowers/specs/2026-11-20-production-closure-design.md)를 따른다.
 
+## 바로 시작: `cineforge`
+
+인자 없이 `cineforge`를 터미널에서 실행하면 어떤 AI로 진행할지 묻고(현재 Codex), 로그인 상태를 확인해 필요하면 브라우저 로그인(`codex login`)을 띄운 뒤, 제작 규칙이 들어간 Codex 대화 세션을 엽니다. 마지막 선택은 `~/.config/cineforge/agent.json`에 기억합니다. 터미널이 아니면(스크립트·파이프) 기존처럼 사용법 오류를 냅니다.
+
+에이전트 안에서 직접 `cineforge new …`를 실행할 때는 `--provider host`가 없어도 됩니다. pi·Claude Code·Codex 환경을 감지해 질문을 에이전트에게 넘깁니다. `CINEFORGE_AGENT_MODE=1`/`0`으로 강제로 켜거나 끌 수 있습니다.
+
 ## 제작 서비스 선택과 모든 에이전트 등록
 
 영상·이미지·음성·음악·효과음·아바타를 어떤 서비스로 만들지 **프로젝트 시작 때 한 번** 고릅니다. 목록은 `cineforge/data/providers.yaml`(공식 원격 MCP 중심 75개, 조사: `docs/research/2026-11-24-media-provider-mcp.md`)이며 한 줄로 추가할 수 있습니다.

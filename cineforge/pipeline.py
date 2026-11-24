@@ -268,7 +268,7 @@ class Project:
         inputs = meta.setdefault("inputs", {})
         if inputs.get("providers"):
             return True
-        if meta.get("provider_mode") == "host":
+        if getattr(self.router, "agent", False):
             try:
                 reply = _HostIO(self.root / "agent_io").exchange("providers_choice", provider_choice.request())
             except AgentInputRequired as req:

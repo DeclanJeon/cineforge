@@ -729,7 +729,7 @@ def cmd_analyze(args: argparse.Namespace) -> int:
 def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(prog="cineforge", description="대화형 AI 콘텐츠 제작 오케스트레이터 (contents-production-skills 연동)")
     p.add_argument("--version", action="version", version=f"cineforge {__version__}")
-    sub = p.add_subparsers(dest="command", required=True)
+    sub = p.add_subparsers(dest="command")
 
     t = sub.add_parser("taxonomy", help="콘셉트 라이브러리 보기/내보내기")
     t.add_argument("--axis")
@@ -1023,7 +1023,17 @@ def cmd_services(args: argparse.Namespace) -> int:
 
 
 def main(argv: list[str] | None = None) -> int:
-    args = build_parser().parse_args(argv)
+    parser = build_parser()
+    args = parser.parse_args(argv)
+    if args.command is None:
+        # Bare `cineforge`: open an agent session in a terminal; elsewhere keep the usage error.
+        if sys.stdin.isatty() and sys.stdout.isatty():
+            from cineforge import launcher
+
+            return int(launcher.start())
+        parser.print_usage(sys.stderr)
+        print("cineforge: error: the following arguments are required: command", file=sys.stderr)
+        return 2
     try:
         target = getattr(args, "project", None)
         if target and args.command != "goal" and (Path(target) / "goal.json").is_file():

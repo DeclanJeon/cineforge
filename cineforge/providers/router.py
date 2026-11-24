@@ -24,6 +24,16 @@ from cineforge.providers.remote import (JevOpenRouterDecisionProvider, JevTypeSa
                                         OpenRouterGenerationProvider)
 
 MODES = ("auto", "host", "openrouter", "mock")
+# Set by coding agents in the shells they run; presence means an agent can answer request files.
+AGENT_ENV = ("PI_CODING_AGENT", "CLAUDECODE", "CODEX_THREAD_ID", "CODEX_SANDBOX")
+
+
+def in_agent_context(env: dict[str, str]) -> bool:
+    """True when CineForge runs inside a coding agent. CINEFORGE_AGENT_MODE=1/0 forces it on/off."""
+    forced = env.get("CINEFORGE_AGENT_MODE")
+    if forced in ("0", "1"):
+        return forced == "1"
+    return any(env.get(name) for name in AGENT_ENV)
 
 
 @dataclass
@@ -32,6 +42,7 @@ class ProviderRouter:
     generation_chain: list[GenerationProvider]
     mode: str = "auto"
     log: list[dict[str, Any]] = field(default_factory=list)
+    agent: bool = False  # a host agent answers request files (and must relay user-only choices)
 
     def decide(self, state: Any, questions: list[Question], task: str = "decision") -> dict[str, Answer]:
         errors: list[str] = []
@@ -86,12 +97,12 @@ def build_router(mode: str = "auto", io_dir: Path | None = None, env: dict[str, 
     io_dir = Path(io_dir) if io_dir else Path.cwd() / "agent_io"
     jev = [JevOpenRouterDecisionProvider(env=env, transport=transport),
            JevTypeSafeDecisionProvider(env=env, transport=transport)]
-    agent_mode = mode == "host" or env.get("CINEFORGE_AGENT_MODE") == "1"
+    agent_mode = mode == "host" or in_agent_context(env)
     gen_remote = OpenRouterGenerationProvider(env=env, transport=transport)
     if mode == "mock":
         return ProviderRouter([HeuristicDecisionProvider()], [MockGenerationProvider()], mode)
     if mode == "host":
-        return ProviderRouter(jev + [HostAgentDecisionProvider(io_dir)], [HostAgentGenerationProvider(io_dir)], mode)
+        return ProviderRouter(jev + [HostAgentDecisionProvider(io_dir)], [HostAgentGenerationProvider(io_dir)], mode, agent=True)
     if mode == "openrouter":
         return ProviderRouter(jev + [HeuristicDecisionProvider()], [gen_remote], mode)
     decision: list[DecisionProvider] = list(jev)
@@ -101,4 +112,4 @@ def build_router(mode: str = "auto", io_dir: Path | None = None, env: dict[str, 
         generation.append(HostAgentGenerationProvider(io_dir))
     decision.append(HeuristicDecisionProvider())
     generation.append(MockGenerationProvider())
-    return ProviderRouter(decision, generation, mode)
+    return ProviderRouter(decision, generation, mode, agent=agent_mode)
