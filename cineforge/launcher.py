@@ -1,4 +1,4 @@
-"""Bare `cineforge`: pick the AI (pi with a chosen account, or Codex), make sure it is signed in, then open its agent session.
+"""Bare `cineforge`: pick the AI (pi with a chosen account, Codex, Claude Code or agy), make sure it is signed in, then open its session.
 
 CineForge is driven by a coding agent. This launcher only chooses and starts that agent with
 the working rules; it never stores credentials (sign-in is the agent CLI's own OAuth flow).
@@ -26,6 +26,23 @@ AGENTS: dict[str, dict[str, Any]] = {
         "status": ["codex", "login", "status"],
         "login": ["codex", "login"],
         "install": "Codex CLI가 필요합니다. 설치: npm install -g @openai/codex (안내: https://developers.openai.com/codex/cli)",
+    },
+    "claude": {
+        "label": "Claude Code (Claude 계정으로 로그인)",
+        "bin": "claude",
+        "status": ["claude", "auth", "status"],   # exits 0 when signed in, 1 otherwise
+        "login": ["claude", "auth", "login"],
+        "rules": "system",                         # --append-system-prompt, then an opening message
+        "install": "Claude Code가 필요합니다. 설치 안내: https://code.claude.com/docs/en/setup",
+    },
+    "agy": {
+        "label": "agy · Antigravity CLI (Google 계정으로 로그인)",
+        "bin": "agy",
+        # No status command: agy opens Google Sign-In itself when no session is stored.
+        "note": "로그인이 안 돼 있으면 agy가 시작하면서 Google 로그인 창을 엽니다.",
+        "rules": "interactive",                    # agy -i "<rules + opening>"
+        "install": "Antigravity CLI(agy)가 필요합니다. 설치: curl -fsSL https://antigravity.google/cli/install.sh | bash "
+                   "(안내: https://antigravity.google/docs/cli/reference)",
     },
 }
 DEFAULT = "pi"
@@ -135,13 +152,21 @@ def start(*, ask: Callable[[str], str] = input, printer: Callable[[str], None] =
         # Rules go in the system prompt so they survive long sessions; the opening message makes the agent ask first.
         argv = [agent["bin"], "--models", f"{account}/*", "--append-system-prompt", prompt, OPENING]
     else:
-        if run(agent["status"]) != 0:
+        if agent.get("status") and run(agent["status"]) != 0:
             printer("로그인이 필요합니다. 브라우저에서 계정으로 로그인해 주세요.")
             run(agent["login"])
             if run(agent["status"]) != 0:
                 printer("로그인을 확인하지 못했습니다. 다시 `cineforge`를 실행해 주세요.")
                 return 1
-        argv = [agent["bin"], prompt]
+        if agent.get("note"):
+            printer(agent["note"])
+        rules = agent.get("rules")
+        if rules == "system":
+            argv = [agent["bin"], "--append-system-prompt", prompt, OPENING]
+        elif rules == "interactive":
+            argv = [agent["bin"], "-i", f"{prompt}\n{OPENING}"]
+        else:
+            argv = [agent["bin"], prompt]
     config.parent.mkdir(parents=True, exist_ok=True)
     config.write_text(json.dumps(remember, ensure_ascii=False) + "\n", encoding="utf-8")
     env["CINEFORGE_AGENT_MODE"] = "1"

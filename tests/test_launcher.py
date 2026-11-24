@@ -180,6 +180,73 @@ def test_pi_remembers_last_account_as_default(tmp_path):
     assert r.launched[0][r.launched[0].index("--models") + 1] == "anthropic/*"
 
 
+# ---------- Claude Code and agy (Antigravity CLI) ----------
+
+class CliRecorder(Recorder):
+    """Any agent CLI: `bins` on PATH, `signed_in` per binary, `login_ok` for the browser sign-in."""
+
+    def __init__(self, answers=(), bins=("claude", "agy"), signed_in=("claude",), login_ok=True):
+        super().__init__(answers=answers)
+        self.bins, self.signed_in, self.login_ok = set(bins), set(signed_in), login_ok
+
+    def which(self, name):
+        return f"/usr/bin/{name}" if name in self.bins else None
+
+    def run(self, argv):
+        self.calls.append(argv)
+        if argv[1:] == ["auth", "status"]:
+            return 0 if argv[0] in self.signed_in else 1
+        if argv[1:] == ["auth", "login"]:
+            if self.login_ok:
+                self.signed_in.add(argv[0])
+            return 0 if self.login_ok else 1
+        return 0
+
+
+def test_menu_offers_pi_codex_claude_and_agy(tmp_path):
+    r = CliRecorder(answers=["claude"])
+    r.start(tmp_path)
+    text = "\n".join(r.out)
+    for name in ("[pi]", "[codex]", "[claude]", "[agy]"):
+        assert name in text
+
+
+def test_claude_code_opens_with_rules_in_system_prompt(tmp_path):
+    r = CliRecorder(answers=["claude"])
+    assert r.start(tmp_path) == 0
+    argv, env = r.launched
+    assert argv[0] == "claude" and "user_choice" in argv[argv.index("--append-system-prompt") + 1]
+    assert "영상" in argv[-1] and env["CINEFORGE_AGENT_MODE"] == "1"
+    assert ["claude", "auth", "login"] not in r.calls
+    assert json.loads((tmp_path / "agent.json").read_text(encoding="utf-8"))["agent"] == "claude"
+
+
+def test_claude_code_signs_in_when_needed_and_stops_on_failure(tmp_path):
+    r = CliRecorder(answers=["claude"], signed_in=())
+    assert r.start(tmp_path) == 0
+    assert r.calls[:3] == [["claude", "auth", "status"], ["claude", "auth", "login"], ["claude", "auth", "status"]]
+    bad = CliRecorder(answers=["claude"], signed_in=(), login_ok=False)
+    assert bad.start(tmp_path) == 1 and bad.launched is None
+
+
+def test_agy_opens_interactive_prompt_and_leaves_sign_in_to_agy(tmp_path):
+    r = CliRecorder(answers=["agy"])
+    assert r.start(tmp_path) == 0
+    argv, env = r.launched
+    assert argv[:2] == ["agy", "-i"] and len(argv) == 3
+    assert "user_choice" in argv[2] and "cineforge new" in argv[2] and "영상" in argv[2]
+    assert env["CINEFORGE_AGENT_MODE"] == "1"
+    assert r.calls == []                                   # agy has no status command; it signs in on start
+    assert "Google" in "\n".join(r.out)
+
+
+def test_missing_claude_or_agy_explains_install(tmp_path):
+    for key, needle in (("claude", "code.claude.com"), ("agy", "antigravity.google/cli/install.sh")):
+        r = CliRecorder(answers=[key], bins=())
+        assert r.start(tmp_path) == 1 and r.launched is None
+        assert needle in "\n".join(r.out)
+
+
 def test_bare_command_without_terminal_prints_usage(capsys, monkeypatch):
     monkeypatch.setattr("sys.stdin.isatty", lambda: False)
     assert main([]) == 2
