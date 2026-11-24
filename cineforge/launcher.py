@@ -1,4 +1,4 @@
-"""Bare `cineforge`: pick the AI, make sure it is signed in, then open its agent session for production.
+"""Bare `cineforge`: pick the AI (pi with a chosen account, or Codex), make sure it is signed in, then open its agent session.
 
 CineForge is driven by a coding agent. This launcher only chooses and starts that agent with
 the working rules; it never stores credentials (sign-in is the agent CLI's own OAuth flow).
@@ -13,6 +13,13 @@ import subprocess
 from typing import Any, Callable
 
 AGENTS: dict[str, dict[str, Any]] = {
+    "pi": {
+        "label": "pi (ChatGPT·Claude·Copilot 계정을 골라 쓰는 에이전트)",
+        "bin": "pi",
+        "install": "pi가 필요합니다. 설치: npm install -g @earendil-works/pi-coding-agent (안내: https://pi.dev)",
+        # Subscription sign-ins pi supports; each is checked with `pi auth check` and signed in with `pi auth login`.
+        "accounts": [("openai-codex", "ChatGPT 계정"), ("anthropic", "Claude 계정"), ("github-copilot", "GitHub Copilot 계정")],
+    },
     "codex": {
         "label": "Codex (ChatGPT 계정으로 로그인)",
         "bin": "codex",
@@ -21,7 +28,8 @@ AGENTS: dict[str, dict[str, Any]] = {
         "install": "Codex CLI가 필요합니다. 설치: npm install -g @openai/codex (안내: https://developers.openai.com/codex/cli)",
     },
 }
-DEFAULT = "codex"
+DEFAULT = "pi"
+OPENING = "CineForge 제작을 시작합니다. 먼저 어떤 영상을 만들지 물어봐 주세요."
 
 PROMPT = """당신은 CineForge 영상 제작 진행자입니다. 사용자와 대화하며 아래 규칙으로 제작을 진행하세요.
 
@@ -41,7 +49,7 @@ def config_path() -> Path:
 
 
 def _run(argv: list[str]) -> int:
-    quiet = argv[-1:] == ["status"]
+    quiet = argv[-1:] == ["status"] or "check" in argv[:3]
     return subprocess.call(argv, stdout=subprocess.DEVNULL if quiet else None, stderr=subprocess.DEVNULL if quiet else None)
 
 
@@ -66,6 +74,37 @@ def _choose(ask: Callable[[str], str], printer: Callable[[str], None], last: str
         printer("목록의 번호나 이름을 입력하세요.")
 
 
+def _pi_account(agent: dict[str, Any], ask: Callable[[str], str], printer: Callable[[str], None],
+                run: Callable[[list[str]], int], remembered: str | None) -> str | None:
+    """Pick the AI account pi should use; sign in through the browser when it is not ready."""
+    accounts = agent["accounts"]
+    ids = [acc for acc, _ in accounts]
+    ready = {acc: run(["pi", "auth", "check", "--provider", acc, "--no-refresh"]) == 0 for acc in ids}
+    default = remembered if remembered in ids else next((acc for acc in ids if ready[acc]), ids[0])
+    printer("\n어떤 계정으로 진행할까요? (✓ = 로그인됨, 세션 안에서 /model로 바꿀 수 있습니다)")
+    for n, (acc, label) in enumerate(accounts, start=1):
+        printer(f"  {n}. {'✓' if ready[acc] else ' '} {label} [{acc}]")
+    while True:
+        raw = ask(f"선택 [{default}]: ").strip().lower()
+        if not raw:
+            chosen = default
+        elif raw.isdigit() and 1 <= int(raw) <= len(ids):
+            chosen = ids[int(raw) - 1]
+        elif raw in ids:
+            chosen = raw
+        else:
+            printer("목록의 번호나 이름을 입력하세요.")
+            continue
+        break
+    if not ready[chosen]:
+        printer("로그인이 필요합니다. 브라우저에서 계정으로 로그인해 주세요.")
+        run(["pi", "auth", "login", chosen])
+        if run(["pi", "auth", "check", "--provider", chosen, "--no-refresh"]) != 0:
+            printer("로그인을 확인하지 못했습니다. 다시 `cineforge`를 실행해 주세요.")
+            return None
+    return chosen
+
+
 def start(*, ask: Callable[[str], str] = input, printer: Callable[[str], None] = print,
           which: Callable[[str], str | None] = shutil.which, run: Callable[[list[str]], int] | None = None,
           launch: Callable[[list[str], dict[str, str]], int] | None = None, config: Path | None = None,
@@ -74,9 +113,10 @@ def start(*, ask: Callable[[str], str] = input, printer: Callable[[str], None] =
     env = dict(os.environ if env is None else env)
     config = config or config_path()
     try:
-        last = json.loads(config.read_text(encoding="utf-8")).get("agent", DEFAULT)
+        saved = json.loads(config.read_text(encoding="utf-8"))
     except (OSError, ValueError):
-        last = DEFAULT
+        saved = {}
+    last = saved.get("agent", DEFAULT)
     if last not in AGENTS:
         last = DEFAULT
     printer("CineForge — 요구사항 한 번, 선택 한 번. 그다음은 논스톱.")
@@ -85,15 +125,25 @@ def start(*, ask: Callable[[str], str] = input, printer: Callable[[str], None] =
     if not which(agent["bin"]):
         printer(agent["install"])
         return 1
-    if run(agent["status"]) != 0:
-        printer("로그인이 필요합니다. 브라우저에서 계정으로 로그인해 주세요.")
-        run(agent["login"])
-        if run(agent["status"]) != 0:
-            printer("로그인을 확인하지 못했습니다. 다시 `cineforge`를 실행해 주세요.")
-            return 1
-    config.parent.mkdir(parents=True, exist_ok=True)
-    config.write_text(json.dumps({"agent": key}, ensure_ascii=False) + "\n", encoding="utf-8")
-    env["CINEFORGE_AGENT_MODE"] = "1"
+    remember: dict[str, str] = {"agent": key}
     prompt = PROMPT.format(cmd=env.get("CINEFORGE_CMD") or "cineforge")
+    if "accounts" in agent:
+        account = _pi_account(agent, ask, printer, run, saved.get("account") if last == key else None)
+        if account is None:
+            return 1
+        remember["account"] = account
+        # Rules go in the system prompt so they survive long sessions; the opening message makes the agent ask first.
+        argv = [agent["bin"], "--models", f"{account}/*", "--append-system-prompt", prompt, OPENING]
+    else:
+        if run(agent["status"]) != 0:
+            printer("로그인이 필요합니다. 브라우저에서 계정으로 로그인해 주세요.")
+            run(agent["login"])
+            if run(agent["status"]) != 0:
+                printer("로그인을 확인하지 못했습니다. 다시 `cineforge`를 실행해 주세요.")
+                return 1
+        argv = [agent["bin"], prompt]
+    config.parent.mkdir(parents=True, exist_ok=True)
+    config.write_text(json.dumps(remember, ensure_ascii=False) + "\n", encoding="utf-8")
+    env["CINEFORGE_AGENT_MODE"] = "1"
     printer(f"{agent['label'].split(' (')[0]} 세션을 엽니다…")
-    return int(launch([agent["bin"], prompt], env) or 0)
+    return int(launch(argv, env) or 0)
